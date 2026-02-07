@@ -1,4 +1,4 @@
-import type { Group, GroupCreateInput } from '@/types';
+import type { Group, GroupCreateInput, Folder, FolderCreateInput, Receipt, ReceiptCreateInput } from '@/types';
 
 /**
  * API Client for Kvitta Backend
@@ -184,3 +184,56 @@ export async function deleteGroup(groupId: string): Promise<{ message: string }>
     method: 'DELETE',
   });
 }
+
+// ============================================
+// Folders
+// ============================================
+
+export async function createFolder(payload: FolderCreateInput): Promise<Folder> {
+  return apiAuthRequest('/folders', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function listFolders(): Promise<Folder[]> {
+  return apiAuthRequest('/folders');
+}
+
+export async function deleteFolder(folderId: string): Promise<{ message: string }> {
+  return apiAuthRequest(`/folders/${folderId}`, {
+    method: 'DELETE',
+  });
+}
+
+export async function updateFolder(folderId: string, payload: FolderCreateInput): Promise<Folder> {
+  return apiAuthRequest(`/folders/${folderId}`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+}
+
+// ============================================
+// Receipt Operations
+// ============================================
+
+export async function moveReceipt(receiptId: string, folderId: string | null): Promise<Receipt> {
+  return apiAuthRequest(`/receipts/${receiptId}/move`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ folder_id: folderId }),
+  });
+}
+
+// Legacy aliases
+export const createReceipt = createGroup;
+export const listReceipts = listGroups;
+export const deleteReceipt = deleteGroup;

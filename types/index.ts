@@ -121,28 +121,51 @@ export interface PaginatedResponse<T> {
 export type LoadingState = 'idle' | 'loading' | 'success' | 'error';
 
 // ============================================
-// Group Expense Rooms
+// Receipts & Folders
 // ============================================
 
-export type GroupRole = 'admin' | 'member';
+export type ReceiptRole = 'admin' | 'member';
 
-export interface GroupMember {
+export interface ReceiptMember {
   email: string;
-  role: GroupRole;
+  role: ReceiptRole;
   joined_at: string;
 }
 
-export interface Group {
+export interface Receipt {
   id: string;
   name: string;
   description?: string | null;
   created_by: string;
   created_at: string;
   updated_at: string;
-  members: GroupMember[];
+  members: ReceiptMember[];
+  folder_id?: string | null;
 }
 
-export interface GroupCreateInput {
+export interface ReceiptCreateInput {
   name: string;
   description?: string;
+  folder_id?: string;
 }
+
+export interface Folder {
+  id: string;
+  name: string;
+  color: string;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+  receipt_count: number;
+}
+
+export interface FolderCreateInput {
+  name: string;
+  color?: string;
+}
+
+// Legacy aliases for backward compatibility
+export type GroupRole = ReceiptRole;
+export type GroupMember = ReceiptMember;
+export type Group = Receipt;
+export type GroupCreateInput = ReceiptCreateInput;
