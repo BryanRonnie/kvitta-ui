@@ -11,6 +11,33 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const AUTH_COOKIE = 'kvitta_token';
+const REMEMBER_COOKIE = 'kvitta_remember';
+const REMEMBER_MAX_AGE = 60 * 60 * 24 * 30; // 30 days
+
+const getCookieAttributes = (maxAge?: number) => {
+  const base = ['Path=/', 'SameSite=Lax'];
+  if (typeof window !== 'undefined' && window.location.protocol === 'https:') {
+    base.push('Secure');
+  }
+  if (maxAge) {
+    base.push(`Max-Age=${maxAge}`);
+  }
+  return base.join('; ');
+};
+
+const setAuthCookie = (tokenValue: string, rememberMe: boolean) => {
+  const tokenAttrs = getCookieAttributes(rememberMe ? REMEMBER_MAX_AGE : undefined);
+  document.cookie = `${AUTH_COOKIE}=${encodeURIComponent(tokenValue)}; ${tokenAttrs}`;
+  const rememberAttrs = getCookieAttributes(rememberMe ? REMEMBER_MAX_AGE : undefined);
+  document.cookie = `${REMEMBER_COOKIE}=${rememberMe ? '1' : '0'}; ${rememberAttrs}`;
+};
+
+const clearAuthCookie = () => {
+  const expiredAttrs = 'Path=/; Max-Age=0; SameSite=Lax';
+  document.cookie = `${AUTH_COOKIE}=; ${expiredAttrs}`;
+  document.cookie = `${REMEMBER_COOKIE}=; ${expiredAttrs}`;
+};
 
 interface User {
   email: string;
@@ -80,6 +107,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem('token');
     localStorage.removeItem('rememberMe');
     sessionStorage.removeItem('token');
+    clearAuthCookie();
   };
 
   const login = async (email: string, password: string, rememberMe = false) => {
@@ -111,6 +139,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         sessionStorage.setItem('token', access_token);
         localStorage.removeItem('rememberMe');
       }
+
+      setAuthCookie(access_token, rememberMe);
     } catch (error) {
       throw error;
     }
@@ -140,6 +170,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Auto-save token on signup (remember me = true)
       localStorage.setItem('token', access_token);
       localStorage.setItem('rememberMe', 'true');
+
+      setAuthCookie(access_token, true);
     } catch (error) {
       throw error;
     }
@@ -188,6 +220,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } else {
           sessionStorage.setItem('token', access_token);
         }
+
+        setAuthCookie(access_token, rememberMe);
       }
     } catch (error) {
       console.error('Token refresh error:', error);
