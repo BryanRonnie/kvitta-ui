@@ -20,6 +20,15 @@ import { Card, CardHeader, CardContent } from "@/components/ui/card";
 export default function Home() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
+      {/* Header */}
+      <header className="absolute top-0 right-0 p-4 sm:p-6">
+        <Link href="/login">
+          <Button variant="outline">
+            Sign in
+          </Button>
+        </Link>
+      </header>
+
       {/* Hero Section */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-16">
         <div className="text-center">
