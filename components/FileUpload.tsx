@@ -1,5 +1,5 @@
 /**
- * FileUpload Component
+ * FileUpload Component (using shadcn/ui)
  * 
  * A drag-and-drop file upload component with click-to-upload fallback.
  * Supports multiple files and file type validation.
@@ -18,6 +18,10 @@
 'use client';
 
 import { useCallback, useState } from 'react';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { Upload } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { FileUploadProps } from '@/types';
 
 export function FileUpload({
@@ -74,73 +78,52 @@ export function FileUpload({
   };
 
   return (
-    <div className="w-full">
+    <div className="w-full space-y-2">
       <div
         onDragEnter={handleDragEnter}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
-        className={`
-          border-2 border-dashed rounded-lg p-8
-          transition-colors cursor-pointer
-          ${isDragActive 
-            ? 'border-blue-500 bg-blue-50' 
-            : 'border-gray-300 hover:border-gray-400'
-          }
-        `}
+        className={cn(
+          "relative border-2 border-dashed rounded-lg p-8 transition-colors cursor-pointer",
+          isDragActive 
+            ? "border-primary bg-primary/5" 
+            : "border-muted-foreground/25 hover:border-muted-foreground/50 bg-background"
+        )}
       >
-        <input
+        <Input
           type="file"
           id="file-upload"
-          className="hidden"
+          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
           accept={accept}
           multiple={multiple}
           onChange={handleInputChange}
+          aria-label="File upload"
         />
-        <label
-          htmlFor="file-upload"
-          className="flex flex-col items-center justify-center cursor-pointer"
-        >
-          <UploadIcon />
-          <p className="mt-2 text-sm text-gray-600">
+        
+        <div className="flex flex-col items-center justify-center text-center">
+          <Upload className="w-10 h-10 text-muted-foreground mb-3" />
+          <p className="text-sm text-foreground mb-1">
             {isDragActive ? (
               'Drop files here'
             ) : (
               <>
-                <span className="font-semibold text-blue-600">Click to upload</span>
+                <span className="font-semibold">Click to upload</span>
                 {' or drag and drop'}
               </>
             )}
           </p>
-          <p className="mt-1 text-xs text-gray-500">
-            {multiple ? `Up to ${maxFiles} files` : '1 file'}
+          <p className="text-xs text-muted-foreground">
+            {accept} {multiple ? `(up to ${maxFiles} files)` : '(single file)'}
           </p>
-        </label>
+        </div>
       </div>
       
       {error && (
-        <p className="mt-2 text-sm text-red-600">
+        <p className="text-sm text-destructive" role="alert">
           {error}
         </p>
       )}
     </div>
-  );
-}
-
-function UploadIcon() {
-  return (
-    <svg
-      className="w-12 h-12 text-gray-400"
-      fill="none"
-      stroke="currentColor"
-      viewBox="0 0 24 24"
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={2}
-        d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-      />
-    </svg>
   );
 }

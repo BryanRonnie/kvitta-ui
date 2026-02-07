@@ -75,7 +75,7 @@ export function Counter() {
 ```tsx
 // components/UserCard.tsx
 
-import { Card, CardHeader, CardContent } from '@/components/Card';
+import { Card, CardHeader, CardContent } from '@/components/ui/card';
 
 interface UserCardProps {
   name: string;

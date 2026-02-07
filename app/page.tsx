@@ -14,8 +14,8 @@
  */
 
 import Link from "next/link";
-import { Button } from "@/components/Button";
-import { Card, CardHeader, CardContent } from "@/components/Card";
+import { Button } from "@/components/ui/button";
+import { Card, CardHeader, CardContent } from "@/components/ui/card";
 
 export default function Home() {
   return (
@@ -33,7 +33,7 @@ export default function Home() {
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link href="/upload">
-              <Button size="lg" variant="primary">
+              <Button size="lg">
                 Get Started
               </Button>
             </Link>
@@ -105,7 +105,7 @@ export default function Home() {
           Try Kvitta today and experience the future of receipt processing.
         </p>
         <Link href="/upload">
-          <Button size="lg" variant="primary">
+          <Button size="lg">
             Upload Your First Receipt
           </Button>
         </Link>

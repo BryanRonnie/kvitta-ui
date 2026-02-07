@@ -47,6 +47,8 @@ kvitta-ui/
 - **Framework**: Next.js 16.1.6
 - **Language**: TypeScript 5
 - **Styling**: Tailwind CSS v4
+- **Components**: shadcn/ui (Radix UI + CVA)
+- **Icons**: Lucide React
 - **Runtime**: Bun (or Node.js 18+)
 - **Backend**: FastAPI (kvitta-api)
 
@@ -66,6 +68,19 @@ See [DEVELOPMENT_GUIDE.md](./DEVELOPMENT_GUIDE.md) for:
 - Building components
 - Adding API endpoints
 - Best practices
+
+### Adding shadcn Components
+
+```bash
+bunx --bun shadcn@latest add [component-name]
+```
+
+Example:
+```bash
+bunx --bun shadcn@latest add dialog badge tabs
+```
+
+See [shadcn/ui](https://ui.shadcn.com) for available components.
 
 ## Scripts
 

@@ -16,8 +16,8 @@
 
 import { useState, useCallback } from 'react';
 import { FileUpload } from '@/components/FileUpload';
-import { Button } from '@/components/Button';
-import { Card, CardHeader, CardContent } from '@/components/Card';
+import { Button } from '@/components/ui/button';
+import { Card, CardHeader, CardContent, CardTitle } from '@/components/ui/card';
 import { extractReceiptText } from '@/lib/api';
 import { OcrResponse, ItemsAnalysis, ChargesAnalysis } from '@/types';
 

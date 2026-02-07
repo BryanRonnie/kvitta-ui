@@ -113,7 +113,7 @@ In Next.js 16 with App Router, **all components are Server Components by default
 // app/products/page.tsx
 // No 'use client' directive = Server Component
 
-import { Card } from '@/components/Card';
+import { Card } from '@/components/ui/card';
 
 export default async function ProductsPage() {
   // Can make API calls directly here
@@ -148,7 +148,7 @@ Use `'use client'` directive **only when you need:**
 'use client'; // Required for useState
 
 import { useState } from 'react';
-import { Button } from '@/components/Button';
+import { Button } from '@/components/ui/button';
 
 export function Counter() {
   const [count, setCount] = useState(0); // useState requires client component
@@ -469,7 +469,7 @@ export interface Order {
 // components/ProductCard.tsx
 
 import { Product } from '@/types';
-import { Card, CardHeader, CardContent } from '@/components/Card';
+import { Card, CardHeader, CardContent } from '@/components/ui/card';
 
 interface ProductCardProps {
   product: Product;
@@ -708,7 +708,7 @@ export async function getReceiptHistory(): Promise<ReceiptHistory[]> {
 import { useState, useEffect } from 'react';
 import { getReceiptHistory } from '@/lib/api';
 import { ReceiptHistory } from '@/types';
-import { Card, CardHeader, CardContent } from '@/components/Card';
+import { Card, CardHeader, CardContent } from '@/components/ui/card';
 
 export default function HistoryPage() {
   const [receipts, setReceipts] = useState<ReceiptHistory[]>([]);
