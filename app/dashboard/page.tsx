@@ -183,7 +183,7 @@ function DashboardContent() {
       if (receiptFolderId) {
         payload.folder_id = receiptFolderId;
       }
-      await createGroup(payload);
+      const createdReceipt = await createGroup(payload);
       setGroupName('');
       setGroupDescription('');
       setReceiptFolderId(null);
@@ -199,6 +199,10 @@ function DashboardContent() {
       } else {
         toast.success('Receipt created');
       }
+
+      const params = new URLSearchParams();
+      params.set('receiptId', createdReceipt.id);
+      router.push(`/upload?${params.toString()}`);
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Failed to create receipt';
       setCreateError(errorMsg);

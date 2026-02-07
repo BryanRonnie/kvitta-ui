@@ -14,7 +14,7 @@
 
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { FileUpload } from '@/components/FileUpload';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardContent, CardTitle } from '@/components/ui/card';
@@ -28,6 +28,41 @@ export default function UploadPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<OcrResponse | null>(null);
+  const [itemsPreviewUrls, setItemsPreviewUrls] = useState<string[]>([]);
+  const [chargesPreviewUrl, setChargesPreviewUrl] = useState<string | null>(null);
+  const [enlargedImage, setEnlargedImage] = useState<string | null>(null);
+
+  const removeItemImage = (index: number) => {
+    setItemsImages(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const removeChargesImage = () => {
+    setChargesImage(null);
+  };
+
+  useEffect(() => {
+    const itemUrls = itemsImages.map((file) => URL.createObjectURL(file));
+    setItemsPreviewUrls(itemUrls);
+
+    const chargesUrl = chargesImage ? URL.createObjectURL(chargesImage) : null;
+    setChargesPreviewUrl(chargesUrl);
+
+    return () => {
+      itemUrls.forEach((url) => URL.revokeObjectURL(url));
+      if (chargesUrl) URL.revokeObjectURL(chargesUrl);
+    };
+  }, [itemsImages, chargesImage]);
+
+  // Close modal on ESC key
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setEnlargedImage(null);
+    };
+    if (enlargedImage) {
+      window.addEventListener('keydown', handleEsc);
+      return () => window.removeEventListener('keydown', handleEsc);
+    }
+  }, [enlargedImage]);
 
   /**
    * Handle file upload submission
@@ -123,6 +158,36 @@ export default function UploadPage() {
                   {itemsImages.length} file(s) selected
                 </p>
               )}
+              {itemsPreviewUrls.length > 0 && (
+                <div className="mt-4 grid grid-cols-3 gap-3">
+                  {itemsPreviewUrls.map((url, index) => (
+                    <div 
+                      key={`${url}-${index}`} 
+                      className="relative overflow-hidden rounded-md border group"
+                    >
+                      <img
+                        src={url}
+                        alt={`Item preview ${index + 1}`}
+                        className="h-24 w-full object-cover cursor-pointer hover:opacity-80 transition-opacity"
+                        onClick={() => setEnlargedImage(url)}
+                      />
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removeItemImage(index);
+                        }}
+                        className="absolute top-1 right-1 bg-red-500 hover:bg-red-600 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                        aria-label="Remove image"
+                      >
+                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                          <line x1="18" y1="6" x2="6" y2="18" strokeWidth="2"/>
+                          <line x1="6" y1="6" x2="18" y2="18" strokeWidth="2"/>
+                        </svg>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -142,6 +207,29 @@ export default function UploadPage() {
                 <p className="mt-2 text-sm text-gray-600">
                   {chargesImage.name}
                 </p>
+              )}
+              {chargesPreviewUrl && (
+                <div className="mt-4 relative overflow-hidden rounded-md border group">
+                  <img
+                    src={chargesPreviewUrl}
+                    alt="Charges preview"
+                    className="h-40 w-full object-cover cursor-pointer hover:opacity-80 transition-opacity"
+                    onClick={() => setEnlargedImage(chargesPreviewUrl)}
+                  />
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      removeChargesImage();
+                    }}
+                    className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white rounded-full p-1.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                    aria-label="Remove image"
+                  >
+                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                      <line x1="18" y1="6" x2="6" y2="18" strokeWidth="2"/>
+                      <line x1="6" y1="6" x2="18" y2="18" strokeWidth="2"/>
+                    </svg>
+                  </button>
+                </div>
               )}
             </CardContent>
           </Card>
@@ -247,6 +335,33 @@ export default function UploadPage() {
                 </CardContent>
               </Card>
             )}
+          </div>
+        )}
+
+        {/* Image Enlarge Modal */}
+        {enlargedImage && (
+          <div 
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+            onClick={() => setEnlargedImage(null)}
+          >
+            <div className="relative flex items-center justify-center">
+              <button
+                onClick={() => setEnlargedImage(null)}
+                className="absolute -top-12 right-0 text-white hover:text-gray-300 transition-colors"
+                aria-label="Close"
+              >
+                <svg className="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <line x1="18" y1="6" x2="6" y2="18" strokeWidth="2"/>
+                  <line x1="6" y1="6" x2="18" y2="18" strokeWidth="2"/>
+                </svg>
+              </button>
+              <img
+                src={enlargedImage}
+                alt="Enlarged preview"
+                className="max-w-full max-h-[90vh] object-contain rounded-lg"
+                onClick={(e) => e.stopPropagation()}
+              />
+            </div>
           </div>
         )}
       </div>
