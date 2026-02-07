@@ -162,14 +162,20 @@
 }
 
 .group-item.drag-over {
-    background-color: hsl(var(--primary) / 0.1);
+    background-color: hsl(var(--primary) / 0.15);
     border: 2px dashed hsl(var(--primary));
     border-radius: calc(var(--radius) * 0.75);
+    box-shadow: 0 0 0 3px hsl(var(--primary) / 0.1), inset 0 0 0 1px hsl(var(--primary) / 0.2);
+    transition: all 0.2s ease;
+    transform: scale(1.02);
 }
 
 .nav-item.drag-over {
-    background-color: hsl(var(--primary) / 0.1);
+    background-color: hsl(var(--primary) / 0.15);
     border: 2px dashed hsl(var(--primary));
+    box-shadow: 0 0 0 3px hsl(var(--primary) / 0.1), inset 0 0 0 1px hsl(var(--primary) / 0.2);
+    transition: all 0.2s ease;
+    transform: translateX(4px);
 }
 
 .group-icon {

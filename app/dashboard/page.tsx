@@ -16,6 +16,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '@/lib/auth-context';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { toast } from 'sonner';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -74,6 +75,7 @@ function DashboardContent() {
   const [groupDescription, setGroupDescription] = useState('');
   const [createLoading, setCreateLoading] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+  const [receiptFolderId, setReceiptFolderId] = useState<string | null>(null);
 
   const [folderName, setFolderName] = useState('');
   const [folderColor, setFolderColor] = useState('#6366F1');
@@ -152,6 +154,17 @@ function DashboardContent() {
     router.push(`/dashboard?${params.toString()}`);
   };
 
+  // Initialize receipt folder when opening the modal
+  const handleOpenCreateModal = () => {
+    // Pre-select current folder if in a specific folder (not 'all' or 'uncategorized')
+    if (selectedFolderId && selectedFolderId !== 'all' && selectedFolderId !== 'uncategorized') {
+      setReceiptFolderId(selectedFolderId);
+    } else {
+      setReceiptFolderId(null); // Default to uncategorized
+    }
+    setShowCreateModal(true);
+  };
+
   const handleCreateGroup = async () => {
     if (!groupName.trim()) {
       setCreateError('Receipt name is required');
@@ -162,17 +175,34 @@ function DashboardContent() {
     setCreateError(null);
 
     try {
-      await createGroup({
+      const payload: any = {
         name: groupName.trim(),
         description: groupDescription.trim() || undefined,
-      });
+      };
+      // Only include folder_id if a folder is selected (not uncategorized)
+      if (receiptFolderId) {
+        payload.folder_id = receiptFolderId;
+      }
+      await createGroup(payload);
       setGroupName('');
       setGroupDescription('');
+      setReceiptFolderId(null);
       setShowCreateModal(false);
       await loadGroups();
       await loadFolders();
+
+      // Show success toast with folder info
+      if (receiptFolderId) {
+        const folder = folders.find(f => f.id === receiptFolderId);
+        const folderName = folder?.name || 'folder';
+        toast.success(`Receipt created in ${folderName}`);
+      } else {
+        toast.success('Receipt created');
+      }
     } catch (err) {
-      setCreateError(err instanceof Error ? err.message : 'Failed to create receipt');
+      const errorMsg = err instanceof Error ? err.message : 'Failed to create receipt';
+      setCreateError(errorMsg);
+      toast.error(errorMsg);
     } finally {
       setCreateLoading(false);
     }
@@ -188,16 +218,20 @@ function DashboardContent() {
     setCreateFolderError(null);
 
     try {
+      const folderNameTrimmed = folderName.trim();
       await createFolder({
-        name: folderName.trim(),
+        name: folderNameTrimmed,
         color: folderColor,
       });
       setFolderName('');
       setFolderColor('#6366F1');
       setShowFolderModal(false);
       await loadFolders();
+      toast.success(`Folder "${folderNameTrimmed}" created`);
     } catch (err) {
-      setCreateFolderError(err instanceof Error ? err.message : 'Failed to create folder');
+      const errorMsg = err instanceof Error ? err.message : 'Failed to create folder';
+      setCreateFolderError(errorMsg);
+      toast.error(errorMsg);
     } finally {
       setCreateFolderLoading(false);
     }
@@ -206,25 +240,33 @@ function DashboardContent() {
   const handleDeleteGroup = async (groupId: string) => {
     if (!confirm('Are you sure you want to delete this receipt? This action cannot be undone.')) return;
     try {
+      const receipt = groups.find(g => g.id === groupId);
       await deleteGroup(groupId);
       await loadGroups();
       await loadFolders();
+      toast.success(`Receipt "${receipt?.name}" deleted`);
     } catch (err) {
-      setGroupsError(err instanceof Error ? err.message : 'Failed to delete receipt');
+      const errorMsg = err instanceof Error ? err.message : 'Failed to delete receipt';
+      setGroupsError(errorMsg);
+      toast.error(errorMsg);
     }
   };
 
   const handleDeleteFolder = async (folderId: string) => {
     if (!confirm('Are you sure you want to delete this folder? Receipts will not be deleted.')) return;
     try {
+      const folder = folders.find(f => f.id === folderId);
       await deleteFolder(folderId);
       if (selectedFolderId === folderId) {
         navigateToFolder('all');
       }
       await loadFolders();
       await loadGroups();
+      toast.success(`Folder "${folder?.name}" deleted`);
     } catch (err) {
-      setGroupsError(err instanceof Error ? err.message : 'Failed to delete folder');
+      const errorMsg = err instanceof Error ? err.message : 'Failed to delete folder';
+      setGroupsError(errorMsg);
+      toast.error(errorMsg);
     }
   };
 
@@ -244,7 +286,10 @@ function DashboardContent() {
 
   // Drag and drop handlers
   const handleDragStart = (e: React.DragEvent, receiptId: string) => {
+    const receipt = groups.find(g => g.id === receiptId);
+    // Store both receipt ID and its current folder
     setDraggedReceiptId(receiptId);
+    e.dataTransfer?.setData('receiptFolderId', receipt?.folder_id || '');
     e.dataTransfer.effectAllowed = 'move';
   };
 
@@ -254,9 +299,22 @@ function DashboardContent() {
   };
 
   const handleDragOver = (e: React.DragEvent, folderId: string | null) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    setDragOverFolderId(folderId);
+    if (!draggedReceiptId) return;
+    
+    // Get the original folder of the dragged receipt
+    const draggedReceipt = groups.find(g => g.id === draggedReceiptId);
+    const sourceFolder = draggedReceipt?.folder_id || null;
+    
+    // Only allow drop if target is different from source
+    const isDifferentFolder = sourceFolder !== folderId;
+    
+    if (isDifferentFolder) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      setDragOverFolderId(folderId);
+    } else {
+      e.dataTransfer.dropEffect = 'none';
+    }
   };
 
   const handleDragLeave = () => {
@@ -269,12 +327,32 @@ function DashboardContent() {
 
     if (!draggedReceiptId) return;
 
+    // Validate that we're moving to a different folder
+    const draggedReceipt = groups.find(g => g.id === draggedReceiptId);
+    const sourceFolder = draggedReceipt?.folder_id || null;
+    
+    if (sourceFolder === folderId) {
+      // Can't drop in the same folder
+      return;
+    }
+
     try {
       await moveReceipt(draggedReceiptId, folderId);
       await loadGroups();
       await loadFolders();
+
+      // Show success toast with folder name
+      if (folderId) {
+        const targetFolder = folders.find(f => f.id === folderId);
+        const folderName = targetFolder?.name || 'folder';
+        toast.success(`Moved "${draggedReceipt?.name}" to ${folderName}`);
+      } else {
+        toast.success(`Moved "${draggedReceipt?.name}" to Uncategorized`);
+      }
     } catch (err) {
-      setGroupsError(err instanceof Error ? err.message : 'Failed to move receipt');
+      const errorMsg = err instanceof Error ? err.message : 'Failed to move receipt';
+      setGroupsError(errorMsg);
+      toast.error(errorMsg);
     }
 
     setDraggedReceiptId(null);
@@ -450,7 +528,7 @@ function DashboardContent() {
               />
             </div>
             
-            <Button onClick={() => setShowCreateModal(true)}>
+            <Button onClick={handleOpenCreateModal}>
               <Plus className="w-4 h-4 mr-2" />
               New Receipt
             </Button>
@@ -471,7 +549,7 @@ function DashboardContent() {
 
           {!groupsLoading && filteredGroups.length === 0 && !searchTerm && (
             <div className="group-stack add-new">
-              <div className="add-group-card" onClick={() => setShowCreateModal(true)}>
+              <div className="add-group-card" onClick={handleOpenCreateModal}>
                 <Plus className="add-icon" />
                 <span>Create Receipt</span>
               </div>
@@ -560,7 +638,7 @@ function DashboardContent() {
 
           {!groupsLoading && filteredGroups.length > 0 && (
             <div className="group-stack add-new">
-              <div className="add-group-card" onClick={() => setShowCreateModal(true)}>
+              <div className="add-group-card" onClick={handleOpenCreateModal}>
                 <Plus className="add-icon" />
                 <span>Create Receipt</span>
               </div>
@@ -608,6 +686,23 @@ function DashboardContent() {
                   value={groupDescription}
                   onChange={(e) => setGroupDescription(e.target.value)}
                 />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="modal-folder-select">Folder (optional)</Label>
+                <select
+                  id="modal-folder-select"
+                  value={receiptFolderId || ''}
+                  onChange={(e) => setReceiptFolderId(e.target.value || null)}
+                  className="w-full px-3 py-2 border border-input bg-background rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                >
+                  <option value="">Uncategorized</option>
+                  {folders.map((folder) => (
+                    <option key={folder.id} value={folder.id}>
+                      {folder.name}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               {createError && (
