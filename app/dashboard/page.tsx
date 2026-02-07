@@ -3,13 +3,19 @@
  * 
  * Main dashboard view for authenticated users with receipt management and folder organization.
  * Protected route - requires login to access.
+ * 
+ * URL Structure:
+ * - /dashboard                    → All receipts
+ * - /dashboard?folder=uncategorized → Uncategorized receipts
+ * - /dashboard?folder=[id]        → Specific folder
+ * - /dashboard?search=term        → Search filter
  */
 
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '@/lib/auth-context';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -48,11 +54,16 @@ import './dashboard.css';
 function DashboardContent() {
   const { user, logout } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  
+  // Get folder and search parameters from URL
+  const folderParam = searchParams.get('folder') || 'all';
+  const searchParam = searchParams.get('search') || '';
 
   const [groups, setGroups] = useState<Group[]>([]);
   const [groupsLoading, setGroupsLoading] = useState(false);
   const [groupsError, setGroupsError] = useState<string | null>(null);
-  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
+  const [selectedFolderId, setSelectedFolderId] = useState<string>(folderParam);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showFolderModal, setShowFolderModal] = useState(false);
 
@@ -113,6 +124,33 @@ function DashboardContent() {
     loadGroups();
     loadFolders();
   }, []);
+
+  // Sync state with URL parameters when they change
+  useEffect(() => {
+    setSelectedFolderId(folderParam);
+    setSearchTerm(searchParam);
+  }, [folderParam, searchParam]);
+
+  // Helper functions to navigate and update URL
+  const navigateToFolder = (folderId: string | null) => {
+    const params = new URLSearchParams();
+    if (folderId === 'all' || !folderId) {
+      if (folderId === 'all') params.set('folder', 'all');
+      else params.set('folder', 'uncategorized');
+    } else {
+      params.set('folder', folderId);
+    }
+    if (searchTerm) params.set('search', searchTerm);
+    router.push(`/dashboard?${params.toString()}`);
+  };
+
+  const handleSearchChange = (term: string) => {
+    setSearchTerm(term);
+    const params = new URLSearchParams();
+    params.set('folder', selectedFolderId);
+    if (term) params.set('search', term);
+    router.push(`/dashboard?${params.toString()}`);
+  };
 
   const handleCreateGroup = async () => {
     if (!groupName.trim()) {
@@ -181,7 +219,7 @@ function DashboardContent() {
     try {
       await deleteFolder(folderId);
       if (selectedFolderId === folderId) {
-        setSelectedFolderId(null);
+        navigateToFolder('all');
       }
       await loadFolders();
       await loadGroups();
@@ -246,13 +284,15 @@ function DashboardContent() {
     let filtered = groups;
 
     // Filter by folder
-    if (selectedFolderId) {
-      filtered = filtered.filter(g => g.folder_id === selectedFolderId);
-    } else if (selectedFolderId === 'all') {
+    if (selectedFolderId === 'all') {
+      // Show all receipts
       filtered = groups;
-    } else if (selectedFolderId === null) {
+    } else if (selectedFolderId === 'uncategorized') {
       // Show receipts not in any folder
       filtered = filtered.filter(g => !g.folder_id);
+    } else if (selectedFolderId) {
+      // Show receipts in the selected folder
+      filtered = filtered.filter(g => g.folder_id === selectedFolderId);
     }
 
     // Filter by search term
@@ -290,7 +330,7 @@ function DashboardContent() {
 
   const getCurrentViewTitle = () => {
     if (selectedFolderId === 'all') return 'All Receipts';
-    if (selectedFolderId === null) return 'Uncategorized';
+    if (selectedFolderId === 'uncategorized') return 'Uncategorized';
     const folder = folders.find(f => f.id === selectedFolderId);
     return folder?.name || 'All Receipts';
   };
@@ -309,14 +349,14 @@ function DashboardContent() {
         <nav className="sidebar-nav">
           <div 
             className={`nav-item ${selectedFolderId === 'all' ? 'active' : ''}`}
-            onClick={() => setSelectedFolderId('all')}
+            onClick={() => navigateToFolder('all')}
           >
             <Layers className="nav-icon" />
             <span>All Receipts</span>
           </div>
           <div 
-            className={`nav-item ${selectedFolderId === null ? 'active' : ''}`}
-            onClick={() => setSelectedFolderId(null)}
+            className={`nav-item ${selectedFolderId === 'uncategorized' ? 'active' : ''}`}
+            onClick={() => navigateToFolder(null)}
             onDragOver={(e) => handleDragOver(e, null)}
             onDragLeave={handleDragLeave}
             onDrop={(e) => handleDrop(e, null)}
@@ -344,7 +384,7 @@ function DashboardContent() {
               <div
                 key={folder.id}
                 className={`group-item ${selectedFolderId === folder.id ? 'active' : ''} ${dragOverFolderId === folder.id ? 'drag-over' : ''}`}
-                onClick={() => setSelectedFolderId(folder.id)}
+                onClick={() => navigateToFolder(folder.id)}
                 onDragOver={(e) => handleDragOver(e, folder.id)}
                 onDragLeave={handleDragLeave}
                 onDrop={(e) => handleDrop(e, folder.id)}
@@ -406,7 +446,7 @@ function DashboardContent() {
                 placeholder="Search receipts..."
                 className="search-input"
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={(e) => handleSearchChange(e.target.value)}
               />
             </div>
             
