@@ -15,8 +15,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardContent, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { LogOut, User, Users, Plus, LogOut as LeaveIcon } from 'lucide-react';
-import { addGroupMember, createGroup, leaveGroup, listGroups } from '@/lib/api';
+import { LogOut, User, Users, Plus, LogOut as LeaveIcon, Trash2, UserPlus } from 'lucide-react';
+import { addGroupMember, createGroup, deleteGroup, leaveGroup, listGroups, updateGroupMemberRole } from '@/lib/api';
 import type { Group } from '@/types';
 
 function DashboardContent() {
@@ -108,12 +108,37 @@ function DashboardContent() {
   };
 
   const handleLeaveGroup = async (groupId: string) => {
+    if (!confirm('Are you sure you want to leave this group?')) return;
     try {
       await leaveGroup(groupId);
       await loadGroups();
     } catch (err) {
       setGroupsError(err instanceof Error ? err.message : 'Failed to leave group');
     }
+  };
+
+  const handleDeleteGroup = async (groupId: string) => {
+    if (!confirm('Are you sure you want to delete this group? This action cannot be undone.')) return;
+    try {
+      await deleteGroup(groupId);
+      await loadGroups();
+    } catch (err) {
+      setGroupsError(err instanceof Error ? err.message : 'Failed to delete group');
+    }
+  };
+
+  const handleMakeAdmin = async (groupId: string, memberEmail: string) => {
+    try {
+      await updateGroupMemberRole(groupId, memberEmail, 'admin');
+      await loadGroups();
+    } catch (err) {
+      setGroupsError(err instanceof Error ? err.message : 'Failed to update member role');
+    }
+  };
+
+  const isUserAdmin = (group: Group) => {
+    const userMember = group.members.find(m => m.email === user?.email);
+    return userMember?.role === 'admin';
   };
 
   const groupCountLabel = useMemo(() => {
@@ -240,14 +265,26 @@ function DashboardContent() {
                             {group.members.length} member{group.members.length === 1 ? '' : 's'}
                           </p>
                         </div>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleLeaveGroup(group.id)}
-                        >
-                          <LeaveIcon className="w-4 h-4 mr-2" />
-                          Leave
-                        </Button>
+                        <div className="flex gap-2">
+                          {isUserAdmin(group) && (
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => handleDeleteGroup(group.id)}
+                            >
+                              <Trash2 className="w-4 h-4 mr-2" />
+                              Delete
+                            </Button>
+                          )}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleLeaveGroup(group.id)}
+                          >
+                            <LeaveIcon className="w-4 h-4 mr-2" />
+                            Leave
+                          </Button>
+                        </div>
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-2 items-end">
@@ -279,15 +316,29 @@ function DashboardContent() {
                         </div>
                       )}
 
-                      <div className="flex flex-wrap gap-2">
-                        {group.members.map((member) => (
-                          <span
-                            key={member.email}
-                            className="text-xs px-2 py-1 rounded-full bg-muted text-muted-foreground"
-                          >
-                            {member.email}{member.role === 'admin' ? ' (admin)' : ''}
-                          </span>
-                        ))}
+                      <div className="space-y-2">
+                        <Label className="text-xs">Members</Label>
+                        <div className="flex flex-wrap gap-2">
+                          {group.members.map((member) => (
+                            <div
+                              key={member.email}
+                              className="flex items-center gap-2 text-xs px-2 py-1 rounded-full bg-muted text-muted-foreground"
+                            >
+                              <span>
+                                {member.email}{member.role === 'admin' ? ' (admin)' : ''}
+                              </span>
+                              {isUserAdmin(group) && member.role !== 'admin' && member.email !== user?.email && (
+                                <button
+                                  onClick={() => handleMakeAdmin(group.id, member.email)}
+                                  className="ml-1 hover:text-foreground transition-colors"
+                                  title="Make admin"
+                                >
+                                  <UserPlus className="w-3 h-3" />
+                                </button>
+                              )}
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     </div>
                   ))}

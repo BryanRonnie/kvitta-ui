@@ -178,3 +178,9 @@ export async function leaveGroup(groupId: string): Promise<{ message: string }> 
     method: 'POST',
   });
 }
+
+export async function deleteGroup(groupId: string): Promise<{ message: string }> {
+  return apiAuthRequest(`/groups/${groupId}`, {
+    method: 'DELETE',
+  });
+}
