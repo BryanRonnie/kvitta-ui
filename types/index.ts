@@ -119,3 +119,30 @@ export interface PaginatedResponse<T> {
  * Loading states for async operations
  */
 export type LoadingState = 'idle' | 'loading' | 'success' | 'error';
+
+// ============================================
+// Group Expense Rooms
+// ============================================
+
+export type GroupRole = 'admin' | 'member';
+
+export interface GroupMember {
+  email: string;
+  role: GroupRole;
+  joined_at: string;
+}
+
+export interface Group {
+  id: string;
+  name: string;
+  description?: string | null;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+  members: GroupMember[];
+}
+
+export interface GroupCreateInput {
+  name: string;
+  description?: string;
+}

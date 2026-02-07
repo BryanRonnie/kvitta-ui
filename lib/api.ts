@@ -1,3 +1,5 @@
+import type { Group, GroupCreateInput } from '@/types';
+
 /**
  * API Client for Kvitta Backend
  * 
@@ -40,6 +42,30 @@ async function apiRequest<T>(
     console.error(`API Error [${endpoint}]:`, error);
     throw error;
   }
+}
+
+function getStoredToken() {
+  if (typeof window === 'undefined') return null;
+  const rememberMe = localStorage.getItem('rememberMe') === 'true';
+  const storedToken = localStorage.getItem('token');
+  const sessionToken = sessionStorage.getItem('token');
+  return rememberMe ? storedToken : sessionToken;
+}
+
+async function apiAuthRequest<T>(endpoint: string, options: RequestInit = {}) {
+  const token = getStoredToken();
+
+  if (!token) {
+    throw new Error('Not authenticated');
+  }
+
+  return apiRequest<T>(endpoint, {
+    ...options,
+    headers: {
+      ...options.headers,
+      Authorization: `Bearer ${token}`,
+    },
+  });
 }
 
 /**
@@ -103,4 +129,52 @@ export async function reasonWithLLM(params: {
 // Example: Health check endpoint
 export async function checkAPIHealth() {
   return apiRequest('/');
+}
+
+// ============================================
+// Group Expense Rooms
+// ============================================
+
+export async function createGroup(payload: GroupCreateInput): Promise<Group> {
+  return apiAuthRequest('/groups', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function listGroups(): Promise<Group[]> {
+  return apiAuthRequest('/groups');
+}
+
+export async function addGroupMember(groupId: string, email: string): Promise<Group> {
+  return apiAuthRequest(`/groups/${groupId}/members`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ email }),
+  });
+}
+
+export async function updateGroupMemberRole(
+  groupId: string,
+  email: string,
+  role: 'admin' | 'member'
+): Promise<Group> {
+  return apiAuthRequest(`/groups/${groupId}/members/${encodeURIComponent(email)}`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ role }),
+  });
+}
+
+export async function leaveGroup(groupId: string): Promise<{ message: string }> {
+  return apiAuthRequest(`/groups/${groupId}/leave`, {
+    method: 'POST',
+  });
 }
