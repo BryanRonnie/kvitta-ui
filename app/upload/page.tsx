@@ -14,12 +14,22 @@
 
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { FileUpload } from '@/components/FileUpload';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardContent, CardTitle } from '@/components/ui/card';
 import { extractReceiptText } from '@/lib/api';
 import { OcrResponse, ItemsAnalysis, ChargesAnalysis } from '@/types';
+
+interface EditableLineItem {
+  name_raw: string;
+  quantity: number | null;
+  unit_price: number | null;
+  line_subtotal: number | null;
+  taxable: boolean;
+}
+
+const HST_RATE = 0.13;
 
 export default function UploadPage() {
   // State management using React hooks
@@ -31,6 +41,7 @@ export default function UploadPage() {
   const [itemsPreviewUrls, setItemsPreviewUrls] = useState<string[]>([]);
   const [chargesPreviewUrl, setChargesPreviewUrl] = useState<string | null>(null);
   const [enlargedImage, setEnlargedImage] = useState<string | null>(null);
+  const [editableItems, setEditableItems] = useState<EditableLineItem[] | null>(null);
 
   const removeItemImage = (index: number) => {
     setItemsImages(prev => prev.filter((_, i) => i !== index));
@@ -111,7 +122,17 @@ export default function UploadPage() {
     if (!result?.items_analysis?.response) return null;
     
     try {
-      return JSON.parse(result.items_analysis.response);
+      const parsed = JSON.parse(result.items_analysis.response);
+      
+      // Handle backwards compatibility: convert total_price to line_subtotal if needed
+      if (parsed.line_items) {
+        parsed.line_items = parsed.line_items.map((item: any) => ({
+          ...item,
+          line_subtotal: item.line_subtotal ?? item.total_price ?? null
+        }));
+      }
+      
+      return parsed;
     } catch {
       return null;
     }
@@ -127,8 +148,85 @@ export default function UploadPage() {
     }
   }, [result]);
 
-  const itemsData = parseItemsAnalysis();
-  const chargesData = parseChargesAnalysis();
+  const itemsData = useMemo(() => parseItemsAnalysis(), [parseItemsAnalysis]);
+  const chargesData = useMemo(() => parseChargesAnalysis(), [parseChargesAnalysis]);
+
+  useEffect(() => {
+    if (!itemsData?.line_items) {
+      setEditableItems(null);
+      return;
+    }
+
+    setEditableItems(
+      itemsData.line_items.map((item) => ({
+        name_raw: item.name_raw ?? '',
+        quantity: item.quantity ?? null,
+        unit_price: item.unit_price ?? null,
+        line_subtotal: item.line_subtotal ?? null,
+        taxable: false
+      }))
+    );
+  }, [itemsData]);
+
+  const updateEditableItem = (
+    index: number,
+    updates: Partial<EditableLineItem>
+  ) => {
+    setEditableItems((prev) => {
+      if (!prev) return prev;
+      return prev.map((item, idx) => (idx === index ? { ...item, ...updates } : item));
+    });
+  };
+
+  const addEditableItem = () => {
+    setEditableItems((prev) => {
+      const next = prev ?? [];
+      return [
+        ...next,
+        {
+          name_raw: '',
+          quantity: 1,
+          unit_price: null,
+          line_subtotal: null,
+          taxable: false
+        }
+      ];
+    });
+  };
+
+  const removeEditableItem = (index: number) => {
+    setEditableItems((prev) => {
+      if (!prev) return prev;
+      return prev.filter((_, idx) => idx !== index);
+    });
+  };
+
+  const computeLineSubtotal = (item: EditableLineItem) => {
+    if (item.quantity == null || item.unit_price == null) return null;
+    return item.quantity * item.unit_price;
+  };
+
+  const computedTotals = useMemo(() => {
+    if (!editableItems) return null;
+
+    let itemsSubtotal = 0;
+    let hstTotal = 0;
+
+    editableItems.forEach((item) => {
+      const lineSubtotal = computeLineSubtotal(item);
+      if (lineSubtotal == null) return;
+
+      itemsSubtotal += lineSubtotal;
+
+      if (item.taxable) hstTotal += lineSubtotal * HST_RATE;
+    });
+
+    return {
+      itemsSubtotal,
+      hstTotal,
+      totalWithTax: itemsSubtotal + hstTotal
+    };
+  }, [editableItems]);
 
   return (
     <div className="min-h-screen bg-gray-50 py-12 px-4">
@@ -271,9 +369,19 @@ export default function UploadPage() {
             {itemsData && (
               <Card>
                 <CardHeader>
-                  <h2 className="text-xl font-bold">Parsed Items</h2>
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-xl font-bold">Parsed Items</h2>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={addEditableItem}
+                    >
+                      Add Item
+                    </Button>
+                  </div>
                 </CardHeader>
                 <CardContent>
+                  
                   <div className="overflow-x-auto">
                     <table className="w-full text-left">
                       <thead className="border-b">
@@ -282,20 +390,136 @@ export default function UploadPage() {
                           <th className="pb-2">Qty</th>
                           <th className="pb-2">Unit Price</th>
                           <th className="pb-2">Subtotal</th>
+                          <th className="pb-2">Taxable</th>
+                          <th className="pb-2">HST</th>
+                          <th className="pb-2 w-8"></th>
                         </tr>
                       </thead>
                       <tbody>
-                        {itemsData.line_items.map((item, idx) => (
+                        {(editableItems ?? itemsData.line_items).map((item, idx) => {
+                          const editableItem = editableItems?.[idx];
+                          const lineSubtotal = editableItem
+                            ? computeLineSubtotal(editableItem)
+                            : item.line_subtotal;
+                          const lineTax = editableItem && editableItem.taxable && lineSubtotal != null
+                            ? lineSubtotal * HST_RATE
+                            : 0;
+
+                          return (
                           <tr key={idx} className="border-b">
-                            <td className="py-2">{item.name_raw}</td>
-                            <td>{item.quantity}</td>
-                            <td>${item.unit_price?.toFixed(2) ?? 'N/A'}</td>
-                            <td>${item.line_subtotal?.toFixed(2) ?? 'N/A'}</td>
+                            <td className="py-2">
+                              {editableItem ? (
+                                <input
+                                  type="text"
+                                  value={editableItem.name_raw}
+                                  onChange={(e) =>
+                                    updateEditableItem(idx, { name_raw: e.target.value })
+                                  }
+                                  className="w-full rounded-md border border-gray-200 px-2 py-1 text-sm"
+                                />
+                              ) : (
+                                item.name_raw
+                              )}
+                            </td>
+                            <td>
+                              {editableItem ? (
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  value={editableItem.quantity ?? ''}
+                                  onChange={(e) =>
+                                    updateEditableItem(idx, {
+                                      quantity: e.target.value === '' ? null : Number(e.target.value)
+                                    })
+                                  }
+                                  className="w-20 rounded-md border border-gray-200 px-2 py-1 text-sm"
+                                />
+                              ) : (
+                                item.quantity
+                              )}
+                            </td>
+                            <td>
+                              {editableItem ? (
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  value={editableItem.unit_price ?? ''}
+                                  onChange={(e) =>
+                                    updateEditableItem(idx, {
+                                      unit_price: e.target.value === '' ? null : Number(e.target.value)
+                                    })
+                                  }
+                                  className="w-24 rounded-md border border-gray-200 px-2 py-1 text-sm"
+                                />
+                              ) : (
+                                `$${item.unit_price?.toFixed(2) ?? 'N/A'}`
+                              )}
+                            </td>
+                            <td>
+                              ${lineSubtotal?.toFixed(2) ?? 'N/A'}
+                            </td>
+                            <td className="text-center">
+                              {editableItem ? (
+                                <input
+                                  type="checkbox"
+                                  checked={editableItem.taxable}
+                                  onChange={(e) =>
+                                    updateEditableItem(idx, {
+                                      taxable: e.target.checked
+                                    })
+                                  }
+                                  className="h-4 w-4"
+                                />
+                              ) : (
+                                '-'
+                              )}
+                            </td>
+                            <td className="text-center">
+                              ${lineTax.toFixed(2)}
+                            </td>
+                            <td className="text-right">
+                              {editableItem ? (
+                                <button
+                                  type="button"
+                                  onClick={() => removeEditableItem(idx)}
+                                  className="group relative inline-flex h-7 w-7 items-center justify-center rounded-md border border-transparent text-gray-400 hover:text-red-600 hover:bg-red-50"
+                                  aria-label={`Remove ${editableItem.name_raw || 'item'}`}
+                                >
+                                  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                    <line x1="18" y1="6" x2="6" y2="18" strokeWidth="2"/>
+                                    <line x1="6" y1="6" x2="18" y2="18" strokeWidth="2"/>
+                                  </svg>
+                                  <span className="pointer-events-none absolute right-8 top-1/2 -translate-y-1/2 whitespace-nowrap rounded bg-gray-900 px-2 py-1 text-xs text-white opacity-0 shadow-sm transition-opacity group-hover:opacity-100">
+                                    Remove {editableItem.name_raw || 'item'}
+                                  </span>
+                                </button>
+                              ) : (
+                                '-'
+                              )}
+                            </td>
                           </tr>
-                        ))}
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
+
+                  {computedTotals && (
+                    <div className="mt-4 space-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span>Items Subtotal:</span>
+                        <span className="font-semibold">${computedTotals.itemsSubtotal.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>HST (13%):</span>
+                        <span className="font-semibold">${computedTotals.hstTotal.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between text-base font-semibold pt-2 border-t">
+                        <span>Total with Tax:</span>
+                        <span>${computedTotals.totalWithTax.toFixed(2)}</span>
+                      </div>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             )}
