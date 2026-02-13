@@ -93,9 +93,9 @@ export default function UploadPage() {
       // Build FormData for multipart/form-data request
       const formData = new FormData();
       
-      // Append multiple items images
+      // Append multiple receipt items images (backend expects "receipt_items")
       itemsImages.forEach(file => {
-        formData.append('items_images', file);
+        formData.append('receipt_items', file);
       });
       
       // Append single charges image
@@ -117,32 +117,45 @@ export default function UploadPage() {
 
   /**
    * Parse the JSON response from LLM
+   * The backend now returns parsed JSON directly, not as a string
    */
   const parseItemsAnalysis = useCallback((): ItemsAnalysis | null => {
-    if (!result?.items_analysis?.response) return null;
+    if (!result?.items_analysis) return null;
     
     try {
-      const parsed = JSON.parse(result.items_analysis.response);
-      
-      // Handle backwards compatibility: convert total_price to line_subtotal if needed
-      if (parsed.line_items) {
-        parsed.line_items = parsed.line_items.map((item: any) => ({
-          ...item,
-          line_subtotal: item.line_subtotal ?? item.total_price ?? null
-        }));
+      // Check if it's already parsed (object) or if it's a string
+      if (typeof result.items_analysis === 'string') {
+        const parsed = JSON.parse(result.items_analysis);
+        
+        // Handle backwards compatibility: convert total_price to line_subtotal if needed
+        if (parsed.line_items) {
+          parsed.line_items = parsed.line_items.map((item: any) => ({
+            ...item,
+            line_subtotal: item.line_subtotal ?? item.total_price ?? null
+          }));
+        }
+        
+        return parsed;
+      } else {
+        // Already parsed object from backend
+        return result.items_analysis as ItemsAnalysis;
       }
-      
-      return parsed;
     } catch {
       return null;
     }
   }, [result]);
 
   const parseChargesAnalysis = useCallback((): ChargesAnalysis | null => {
-    if (!result?.charges_analysis?.response) return null;
+    if (!result?.charges_analysis) return null;
     
     try {
-      return JSON.parse(result.charges_analysis.response);
+      // Check if it's already parsed (object) or if it's a string
+      if (typeof result.charges_analysis === 'string') {
+        return JSON.parse(result.charges_analysis);
+      } else {
+        // Already parsed object from backend
+        return result.charges_analysis as ChargesAnalysis;
+      }
     } catch {
       return null;
     }
@@ -163,7 +176,7 @@ export default function UploadPage() {
         quantity: item.quantity ?? null,
         unit_price: item.unit_price ?? null,
         line_subtotal: item.line_subtotal ?? null,
-        taxable: false
+        taxable: item.taxable ?? false
       }))
     );
   }, [itemsData]);
@@ -359,10 +372,36 @@ export default function UploadPage() {
                 <h2 className="text-2xl font-bold">Extraction Results</h2>
               </CardHeader>
               <CardContent>
+                <div className="mb-4 flex items-center justify-between text-sm">
+                  <span className="text-gray-600">Items Processed:</span>
+                  <span className="font-semibold">
+                    {result.total_items_processed ?? 'N/A'}
+                  </span>
+                </div>
                 <h3 className="font-semibold mb-2">Raw OCR Text</h3>
                 <pre className="bg-gray-100 p-4 rounded overflow-x-auto text-sm">
-                  {result.full_text}
+                  {result.full_text ?? 'No raw OCR text in this response.'}
                 </pre>
+                {result.items_analysis && (
+                  <>
+                    <h3 className="font-semibold mt-4 mb-2">Items Analysis (Raw JSON)</h3>
+                    <pre className="bg-gray-100 p-4 rounded overflow-x-auto text-sm">
+                      {typeof result.items_analysis === 'string'
+                        ? result.items_analysis
+                        : JSON.stringify(result.items_analysis, null, 2)}
+                    </pre>
+                  </>
+                )}
+                {result.charges_analysis && (
+                  <>
+                    <h3 className="font-semibold mt-4 mb-2">Charges Analysis (Raw JSON)</h3>
+                    <pre className="bg-gray-100 p-4 rounded overflow-x-auto text-sm">
+                      {typeof result.charges_analysis === 'string'
+                        ? result.charges_analysis
+                        : JSON.stringify(result.charges_analysis, null, 2)}
+                    </pre>
+                  </>
+                )}
               </CardContent>
             </Card>
 
@@ -536,13 +575,13 @@ export default function UploadPage() {
                       ${chargesData.subtotal_items?.toFixed(2) ?? 'N/A'}
                     </span>
                   </div>
-                  {chargesData.fees.map((fee, idx) => (
+                  {(chargesData.fees || []).map((fee, idx) => (
                     <div key={idx} className="flex justify-between">
                       <span>{fee.type}:</span>
                       <span>${fee.amount.toFixed(2)}</span>
                     </div>
                   ))}
-                  {chargesData.discounts.map((discount, idx) => (
+                  {(chargesData.discounts || []).map((discount, idx) => (
                     <div key={idx} className="flex justify-between text-green-600">
                       <span>{discount.description}:</span>
                       <span>-${discount.amount.toFixed(2)}</span>

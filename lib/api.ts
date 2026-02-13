@@ -74,15 +74,15 @@ async function apiAuthRequest<T>(endpoint: string, options: RequestInit = {}) {
  * @example
  * ```ts
  * const formData = new FormData();
- * formData.append('items_images', file1);
- * formData.append('items_images', file2);
+ * formData.append('receipt_items', file1);
+ * formData.append('receipt_items', file2);
  * formData.append('charges_image', file3);
  * 
  * const result = await extractReceiptText(formData);
  * ```
  */
 export async function extractReceiptText(formData: FormData) {
-  const response = await fetch(`${API_BASE_URL}/nvidia-ocr/extract-text`, {
+  const response = await fetch(`${API_BASE_URL}/upload`, {
     method: 'POST',
     body: formData,
     // Don't set Content-Type header - browser will set it with boundary for multipart/form-data
