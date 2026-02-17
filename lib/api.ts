@@ -11,7 +11,7 @@ import type { Group, GroupCreateInput, Folder, FolderCreateInput, Receipt, Recei
  * - Reusable across components
  */
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API_BASE_URL = "https://kvitta-api-7d3pprqtaq-uc.a.run.app";
 
 /**
  * Generic fetch wrapper with error handling
@@ -21,7 +21,7 @@ async function apiRequest<T>(
   options: RequestInit = {}
 ): Promise<T> {
   const url = `${API_BASE_URL}${endpoint}`;
-  
+
   try {
     const response = await fetch(url, {
       ...options,
@@ -31,8 +31,8 @@ async function apiRequest<T>(
     });
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ 
-        detail: `HTTP ${response.status}` 
+      const error = await response.json().catch(() => ({
+        detail: `HTTP ${response.status}`
       }));
       throw new Error(error.detail || `Request failed: ${response.statusText}`);
     }
@@ -81,21 +81,38 @@ async function apiAuthRequest<T>(endpoint: string, options: RequestInit = {}) {
  * const result = await extractReceiptText(formData);
  * ```
  */
-export async function extractReceiptText(formData: FormData) {
-  const response = await fetch(`${API_BASE_URL}/upload`, {
+interface UploadResponse {
+  receipt_id: string;
+  status: 'pending' | 'processing' | 'completed' | 'error';
+  message: string;
+}
+
+export async function extractReceiptText(formData: FormData): Promise<UploadResponse> {
+  const token = getStoredToken();
+  const headers: HeadersInit = {};
+
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  const response = await fetch(`${API_BASE_URL}/analyze-images-async`, {
     method: 'POST',
+    headers, // Do NOT set Content-Type for FormData, browser does it with boundary
     body: formData,
-    // Don't set Content-Type header - browser will set it with boundary for multipart/form-data
   });
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ 
-      detail: `HTTP ${response.status}` 
+    const error = await response.json().catch(() => ({
+      detail: `HTTP ${response.status}`
     }));
-    throw new Error(error.detail || 'Failed to extract receipt text');
+    throw new Error(error.detail || 'Failed to start receipt processing');
   }
 
-  return await response.json();
+  return response.json();
+}
+
+export async function getReceipt(receiptId: string): Promise<Receipt> {
+  return apiAuthRequest(`/receipt/${receiptId}`);
 }
 
 /**
@@ -237,3 +254,17 @@ export async function moveReceipt(receiptId: string, folderId: string | null): P
 export const createReceipt = createGroup;
 export const listReceipts = listGroups;
 export const deleteReceipt = deleteGroup;
+
+export async function getGroupReceipts(groupId: string): Promise<Receipt[]> {
+  return apiAuthRequest(`/groups/${groupId}/receipts`);
+}
+
+export async function saveSplit(receiptId: string, splitMap: Record<string, string[]>) {
+  return apiAuthRequest(`/receipts/${receiptId}/split`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ split_map: splitMap }),
+  });
+}

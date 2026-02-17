@@ -34,16 +34,13 @@ export interface Discount {
  * Response from Nvidia OCR API
  */
 export interface OcrResponse {
-  success: boolean;
-  full_text: string;
-  items_text: string;
-  charges_text: string;
-  items_analysis?: {
-    response: string; // JSON string containing line_items
-  };
-  charges_analysis?: {
-    response: string; // JSON string containing charges data
-  };
+  total_items_processed?: number;
+  full_text?: string | null;
+  items_text?: string;
+  charges_text?: string;
+  items_analysis?: ItemsAnalysis | string | null;
+  charges_analysis?: ChargesAnalysis | string | null;
+  success?: boolean;
 }
 
 /**
@@ -133,14 +130,16 @@ export interface ReceiptMember {
 }
 
 export interface Receipt {
-  id: string;
-  name: string;
-  description?: string | null;
-  created_by: string;
+  _id: string; // MongoDB ID
   created_at: string;
+  status: 'pending' | 'processing' | 'completed' | 'error';
+  folder_id?: string;
+  group_id?: string;
+  uploaded_by?: string;
+  items_analysis?: any; // JSON from LLM
+  charges_analysis?: any; // JSON from LLM
+  split_details?: Record<string, string[]>; // item_index -> user_ids
   updated_at: string;
-  members: ReceiptMember[];
-  folder_id?: string | null;
 }
 
 export interface ReceiptCreateInput {
@@ -164,8 +163,19 @@ export interface FolderCreateInput {
   color?: string;
 }
 
-// Legacy aliases for backward compatibility
+// Group Types (Expense Rooms)
+export interface Group {
+  id: string;
+  name: string;
+  description?: string | null;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+  members: ReceiptMember[];
+  folder_id?: string | null;
+  receipt_ids?: string[];
+}
+
 export type GroupRole = ReceiptRole;
 export type GroupMember = ReceiptMember;
-export type Group = Receipt;
 export type GroupCreateInput = ReceiptCreateInput;

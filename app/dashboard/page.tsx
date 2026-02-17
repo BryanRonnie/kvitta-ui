@@ -21,14 +21,14 @@ import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { 
-  LogOut, 
-  Users, 
-  Plus, 
-  Trash2, 
-  UserPlus, 
-  Layers, 
-  Clock, 
+import {
+  LogOut,
+  Users,
+  Plus,
+  Trash2,
+  UserPlus,
+  Layers,
+  Clock,
   Star,
   X,
   Eye,
@@ -36,18 +36,18 @@ import {
   Folder,
   Edit2
 } from 'lucide-react';
-import { 
-  addGroupMember, 
-  createGroup, 
-  deleteGroup, 
-  leaveGroup, 
-  listGroups, 
+import {
+  addGroupMember,
+  createGroup,
+  deleteGroup,
+  leaveGroup,
+  listGroups,
   updateGroupMemberRole,
   createFolder,
   listFolders,
   deleteFolder,
   updateFolder,
-  moveReceipt 
+  moveReceipt
 } from '@/lib/api';
 import type { Group, Folder as FolderType } from '@/types';
 import './dashboard.css';
@@ -56,7 +56,7 @@ function DashboardContent() {
   const { user, logout } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
-  
+
   // Get folder and search parameters from URL
   const folderParam = searchParams.get('folder') || 'all';
   const searchParam = searchParams.get('search') || '';
@@ -201,7 +201,7 @@ function DashboardContent() {
       }
 
       const params = new URLSearchParams();
-      params.set('receiptId', createdReceipt.id);
+      params.set('groupId', createdReceipt.id);
       router.push(`/upload?${params.toString()}`);
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Failed to create receipt';
@@ -274,7 +274,7 @@ function DashboardContent() {
     }
   };
 
-  const handleMakeAdmin =async (groupId: string, memberEmail: string) => {
+  const handleMakeAdmin = async (groupId: string, memberEmail: string) => {
     try {
       await updateGroupMemberRole(groupId, memberEmail, 'admin');
       await loadGroups();
@@ -304,14 +304,14 @@ function DashboardContent() {
 
   const handleDragOver = (e: React.DragEvent, folderId: string | null) => {
     if (!draggedReceiptId) return;
-    
+
     // Get the original folder of the dragged receipt
     const draggedReceipt = groups.find(g => g.id === draggedReceiptId);
     const sourceFolder = draggedReceipt?.folder_id || null;
-    
+
     // Only allow drop if target is different from source
     const isDifferentFolder = sourceFolder !== folderId;
-    
+
     if (isDifferentFolder) {
       e.preventDefault();
       e.dataTransfer.dropEffect = 'move';
@@ -334,7 +334,7 @@ function DashboardContent() {
     // Validate that we're moving to a different folder
     const draggedReceipt = groups.find(g => g.id === draggedReceiptId);
     const sourceFolder = draggedReceipt?.folder_id || null;
-    
+
     if (sourceFolder === folderId) {
       // Can't drop in the same folder
       return;
@@ -380,7 +380,7 @@ function DashboardContent() {
     // Filter by search term
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
-      filtered = filtered.filter(group => 
+      filtered = filtered.filter(group =>
         group.name.toLowerCase().includes(term) ||
         group.description?.toLowerCase().includes(term) ||
         group.members.some(m => m.email.toLowerCase().includes(term))
@@ -429,14 +429,14 @@ function DashboardContent() {
         </div>
 
         <nav className="sidebar-nav">
-          <div 
+          <div
             className={`nav-item ${selectedFolderId === 'all' ? 'active' : ''}`}
             onClick={() => navigateToFolder('all')}
           >
             <Layers className="nav-icon" />
             <span>All Receipts</span>
           </div>
-          <div 
+          <div
             className={`nav-item ${selectedFolderId === 'uncategorized' ? 'active' : ''}`}
             onClick={() => navigateToFolder(null)}
             onDragOver={(e) => handleDragOver(e, null)}
@@ -446,21 +446,21 @@ function DashboardContent() {
             <Clock className="nav-icon" />
             <span>Uncategorized</span>
           </div>
-          
+
         </nav>
 
         <div className="sidebar-section">
           <div className="section-header">
             <h3 className="section-title">Folders</h3>
-            <button 
-              className="btn-icon-small" 
+            <button
+              className="btn-icon-small"
               onClick={() => setShowFolderModal(true)}
               title="Create Folder"
             >
               <Plus />
             </button>
           </div>
-          
+
           <div className="group-list">
             {folders.map((folder) => (
               <div
@@ -516,12 +516,12 @@ function DashboardContent() {
             <h1 className="page-title">{getCurrentViewTitle()}</h1>
             <span className="item-count">{receiptCountLabel}</span>
           </div>
-          
+
           <div className="header-actions">
             <div className="search-bar">
               <svg className="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                <circle cx="11" cy="11" r="8" strokeWidth="2"/>
-                <path d="m21 21-4.35-4.35" strokeWidth="2"/>
+                <circle cx="11" cy="11" r="8" strokeWidth="2" />
+                <path d="m21 21-4.35-4.35" strokeWidth="2" />
               </svg>
               <input
                 type="text"
@@ -531,7 +531,7 @@ function DashboardContent() {
                 onChange={(e) => handleSearchChange(e.target.value)}
               />
             </div>
-            
+
             <Button onClick={handleOpenCreateModal}>
               <Plus className="w-4 h-4 mr-2" />
               New Receipt
@@ -620,7 +620,22 @@ function DashboardContent() {
                   </div>
 
                   <div className="group-actions">
-                    <button className="action-btn" title="View Receipt">
+                    <button
+                      className="action-btn"
+                      title="View Receipt"
+                      onClick={() => {
+                        // usage: if receipt exists, go to receiptId, else go to upload with groupId
+                        const lastReceiptId = group.receipt_ids && group.receipt_ids.length > 0
+                          ? group.receipt_ids[group.receipt_ids.length - 1]
+                          : null;
+
+                        if (lastReceiptId) {
+                          router.push(`/upload?receiptId=${lastReceiptId}`);
+                        } else {
+                          router.push(`/upload?groupId=${group.id}`);
+                        }
+                      }}
+                    >
                       <Eye />
                     </button>
                     <button className="action-btn" title="Settings">
@@ -771,9 +786,8 @@ function DashboardContent() {
                   {folderColors.map((color, index) => (
                     <button
                       key={`${color}-${index}`}
-                      className={`w-10 h-10 rounded-md transition-all ${
-                        folderColor === color ? 'ring-2 ring-offset-2 ring-primary scale-110' : ''
-                      }`}
+                      className={`w-10 h-10 rounded-md transition-all ${folderColor === color ? 'ring-2 ring-offset-2 ring-primary scale-110' : ''
+                        }`}
                       style={{ backgroundColor: color }}
                       onClick={() => setFolderColor(color)}
                       title={color}
