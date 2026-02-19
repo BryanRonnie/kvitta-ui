@@ -11,8 +11,8 @@ import type { Group, GroupCreateInput, Folder, FolderCreateInput, Receipt, Recei
  * - Reusable across components
  */
 
-const API_BASE_URL = "https://kvitta-api-7d3pprqtaq-uc.a.run.app";
-
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://kvitta-api-368335160634.us-central1.run.app';
+// const API_BASE_URL = 'http://localhost:8000'; // Use this for local development
 /**
  * Generic fetch wrapper with error handling
  */

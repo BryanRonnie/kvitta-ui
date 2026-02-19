@@ -37,7 +37,6 @@ import {
   Edit2
 } from 'lucide-react';
 import {
-  addGroupMember,
   createGroup,
   deleteGroup,
   leaveGroup,
@@ -47,7 +46,8 @@ import {
   listFolders,
   deleteFolder,
   updateFolder,
-  moveReceipt
+  moveReceipt,
+  getReceipt
 } from '@/lib/api';
 import type { Group, Folder as FolderType } from '@/types';
 import './dashboard.css';
@@ -85,6 +85,7 @@ function DashboardContent() {
   const [searchTerm, setSearchTerm] = useState('');
   const [draggedReceiptId, setDraggedReceiptId] = useState<string | null>(null);
   const [dragOverFolderId, setDragOverFolderId] = useState<string | null>(null);
+  const [receiptStatuses, setReceiptStatuses] = useState<Record<string, { label: string; color: string }>>({});
 
   const folderColors = [
     '#8B5CF6', '#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#6366F1',
@@ -410,6 +411,74 @@ function DashboardContent() {
     return rotations[index % rotations.length];
   };
 
+  const getReceiptStatus = (group: Group): { label: string; color: string } => {
+    // Check if group has any receipts
+    if (!group.receipt_ids || group.receipt_ids.length === 0) {
+      return { label: 'Empty', color: 'bg-gray-400' };
+    }
+    
+    // Check if we have cached status for this group
+    if (receiptStatuses[group.id]) {
+      return receiptStatuses[group.id];
+    }
+    
+    // Return loading state while fetching
+    return { label: 'Loading', color: 'bg-gray-300' };
+  };
+
+  // Load receipt statuses for all groups with receipts
+  useEffect(() => {
+    const loadReceiptStatuses = async () => {
+      const statusMap: Record<string, { label: string; color: string }> = {};
+      let hasProcessing = false;
+      
+      for (const group of groups) {
+        if (group.receipt_ids && group.receipt_ids.length > 0) {
+          try {
+            // Get the latest receipt for this group
+            const latestReceiptId = group.receipt_ids[group.receipt_ids.length - 1];
+            const receipt = await getReceipt(latestReceiptId);
+            
+            // Determine status based on receipt data
+            if (receipt.split_details && Object.keys(receipt.split_details).length > 0) {
+              statusMap[group.id] = { label: 'Split', color: 'bg-purple-500' };
+            } else if (receipt.items_analysis && receipt.charges_analysis) {
+              statusMap[group.id] = { label: 'Parsed', color: 'bg-blue-500' };
+            } else if (receipt.items_analysis) {
+              statusMap[group.id] = { label: 'Parsed', color: 'bg-blue-500' };
+            } else if (receipt.status === 'pending' || receipt.status === 'processing') {
+              statusMap[group.id] = { label: 'Processing', color: 'bg-yellow-500' };
+              hasProcessing = true;
+            } else {
+              statusMap[group.id] = { label: 'Uploaded', color: 'bg-green-500' };
+              hasProcessing = true;
+            }
+          } catch (error) {
+            console.error(`Failed to load receipt status for group ${group.id}:`, error);
+            statusMap[group.id] = { label: 'Unknown', color: 'bg-gray-400' };
+          }
+        }
+      }
+      
+      setReceiptStatuses(statusMap);
+      return hasProcessing;
+    };
+
+    if (groups.length > 0) {
+      loadReceiptStatuses();
+      
+      // Poll every 10 seconds to refresh statuses for processing receipts
+      const interval = setInterval(async () => {
+        const shouldContinue = await loadReceiptStatuses();
+        if (!shouldContinue) {
+          clearInterval(interval);
+        }
+      }, 10000);
+      
+      return () => clearInterval(interval);
+    }
+  }, [groups]);
+
   const getCurrentViewTitle = () => {
     if (selectedFolderId === 'all') return 'All Receipts';
     if (selectedFolderId === 'uncategorized') return 'Uncategorized';
@@ -578,7 +647,12 @@ function DashboardContent() {
                 >
                   <div className="group-paper">
                     <div className="group-top">
-                      <div className="group-title">{group.name}</div>
+                      <div className="flex items-center gap-2">
+                        <div className="group-title">{group.name}</div>
+                        <span className={`px-2 py-0.5 text-xs font-medium text-white rounded-full ${getReceiptStatus(group).color}`}>
+                          {getReceiptStatus(group).label}
+                        </span>
+                      </div>
                       <div className="group-date">{formatDate(group.created_at)}</div>
                     </div>
 
