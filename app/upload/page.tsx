@@ -41,7 +41,7 @@ export default function UploadPage() {
   // State management using React hooks
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [inputMethod, setInputMethod] = useState<'upload' | 'csv'>('upload');
+  const [inputMethod, setInputMethod] = useState<'upload' | 'csv'>('csv');
   const [bulkCsvInput, setBulkCsvInput] = useState('');
   const [itemsImages, setItemsImages] = useState<File[]>([]);
   const [chargesImage, setChargesImage] = useState<File | null>(null);
@@ -773,13 +773,16 @@ export default function UploadPage() {
           <div className="mb-6">
             <div className="flex gap-2 border-b border-gray-200">
               <button
-                onClick={() => setInputMethod('upload')}
-                className={`px-4 py-2 font-medium transition-colors ${inputMethod === 'upload'
-                  ? 'border-b-2 border-blue-500 text-blue-600'
-                  : 'text-gray-500 hover:text-gray-700'
-                  }`}
+                disabled
+                className="px-4 py-2 font-medium transition-colors text-gray-400 cursor-not-allowed relative"
+                title="Image upload coming soon"
               >
-                Upload Images
+                <span className="flex items-center gap-2">
+                  Upload Images
+                  <span className="inline-block px-2 py-0.5 text-xs bg-yellow-100 text-yellow-800 rounded">
+                    Coming Soon
+                  </span>
+                </span>
               </button>
               <button
                 onClick={() => setInputMethod('csv')}
@@ -842,7 +845,7 @@ export default function UploadPage() {
           </>
         )}
 
-        {/* Upload Section - Only show if no results yet */}
+        {/* Upload Section - Disabled for now */}
         {!result && inputMethod === 'upload' && (
           <>
             <div className="grid md:grid-cols-2 gap-6 mb-6">
