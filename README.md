@@ -1,123 +1,36 @@
-# Kvitta UI
+This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
-A modern Next.js 16 application for AI-powered receipt processing using Nvidia's OCR and reasoning models.
+## Getting Started
 
-## Features
-
-- 🤖 **AI-Powered OCR** - Extract text from receipt images using Nvidia OCDRNet
-- 💰 **Smart Parsing** - Automatically identify items, prices, taxes, and fees
-- 📊 **Structured Output** - Get clean JSON with line items and charges
-- ⚡ **Fast & Modern** - Built with Next.js 16, React 19, and TypeScript
-- 🎨 **Beautiful UI** - Responsive design with Tailwind CSS v4
-
-## Quick Start
+First, run the development server:
 
 ```bash
-# Install dependencies
-bun install
-
-# Set up environment
-cp .env.example .env.local
-# Edit .env.local with your API URL
-
-# Run development server
+npm run dev
+# or
+yarn dev
+# or
+pnpm dev
+# or
 bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000)
+Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-## Project Structure
+You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
-```
-kvitta-ui/
-├── app/              # Pages (App Router)
-├── components/       # Reusable UI components
-├── lib/              # API client and utilities
-├── types/            # TypeScript definitions
-└── public/           # Static assets
-```
-
-## Key Pages
-
-- **`/`** - Landing page
-- **`/upload`** - Receipt upload and processing
-
-## Tech Stack
-
-- **Framework**: Next.js 16.1.6
-- **Language**: TypeScript 5
-- **Styling**: Tailwind CSS v4
-- **Components**: shadcn/ui (Radix UI + CVA)
-- **Icons**: Lucide React
-- **Runtime**: Bun (or Node.js 18+)
-- **Backend**: FastAPI (kvitta-api)
-
-## Environment Variables
-
-Create `.env.local`:
-
-```env
-NEXT_PUBLIC_API_URL=http://localhost:8000
-```
-
-## Development
-
-See [DEVELOPMENT_GUIDE.md](./DEVELOPMENT_GUIDE.md) for:
-- Architecture principles
-- Creating new pages
-- Building components
-- Adding API endpoints
-- Best practices
-
-### Adding shadcn Components
-
-```bash
-bunx --bun shadcn@latest add [component-name]
-```
-
-Example:
-```bash
-bunx --bun shadcn@latest add dialog badge tabs
-```
-
-See [shadcn/ui](https://ui.shadcn.com) for available components.
-
-## Scripts
-
-```bash
-bun dev          # Start development server
-bun build        # Create production build
-bun start        # Run production server
-bun lint         # Run ESLint
-```
-
-## Contributing
-
-1. Follow the architecture patterns in DEVELOPMENT_GUIDE.md
-2. Use Server Components by default
-3. Add `'use client'` only when needed
-4. Keep components small and focused
-5. Write TypeScript with proper types
-6. Test your changes locally
-
-## Backend Setup
-
-This frontend requires the kvitta-api backend:
-
-```bash
-# In kvitta-api directory
-pip install -r requirements.txt
-uvicorn main:app --reload
-```
-
-See `kvitta-api/README.md` for backend setup details.
+This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
 ## Learn More
 
-- [Next.js Documentation](https://nextjs.org/docs)
-- [Development Guide](./DEVELOPMENT_GUIDE.md)
-- [Tailwind CSS](https://tailwindcss.com/docs)
+To learn more about Next.js, take a look at the following resources:
 
-## License
+- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
+- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
 
-MIT 
+You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+
+## Deploy on Vercel
+
+The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+
+Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
