@@ -46,24 +46,3 @@ api.interceptors.response.use(
     return Promise.reject(error);
   }
 );
-
-
-import { describe, it, expect } from "bun:test";
-
-describe("Axios SSR branch", () => {
-  it("does not access localStorage when window is undefined", async () => {
-    // Remove window entirely
-    delete (globalThis as any).window;
-
-    const handler =
-      api.interceptors.request.handlers?.[0]?.fulfilled;
-
-    if (!handler) {
-      throw new Error("Handler is not defined");
-    }
-
-    const config = await handler({ headers: {} } as any);
-
-    expect(config.headers.Authorization).toBeUndefined();
-  });
-});

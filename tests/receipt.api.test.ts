@@ -1,6 +1,5 @@
-import { describe, it, expect, mock } from "bun:test";
 import type { AxiosResponse } from "axios";
-import { api } from "@/api/axios";
+import { api } from "../src/api";
 import {
   createReceipt,
   getReceipt,
@@ -10,106 +9,116 @@ import {
   removeMember,
   getMembers,
   finalizeReceipt,
-} from "@/api/receipt.api";
+} from "../src/api/receipt.api";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const axiosResponse = <T>(data: T): AxiosResponse<T> => ({
   data,
   status: 200,
   statusText: "OK",
   headers: {},
-  config: {},
+  config: {} as any,
 });
 
 describe("Receipt API", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it("createReceipt", async () => {
-    api.post = mock(async () =>
-      axiosResponse({ _id: "1" })
-    ) as unknown as typeof api.post;
+    const postSpy = vi
+      .spyOn(api, "post")
+      .mockResolvedValue(axiosResponse({ _id: "1" }));
 
     await createReceipt({ title: "Dinner" });
 
-    expect(api.post).toHaveBeenCalledWith("/receipts", {
+    expect(postSpy).toHaveBeenCalledWith("/receipts", {
       title: "Dinner",
     });
   });
 
   it("getReceipt", async () => {
-    api.get = mock(async () =>
-      axiosResponse({ _id: "1" })
-    ) as unknown as typeof api.get;
+    const getSpy = vi
+      .spyOn(api, "get")
+      .mockResolvedValue(axiosResponse({ _id: "1" }));
 
     await getReceipt("1");
 
-    expect(api.get).toHaveBeenCalledWith("/receipts/1");
+    expect(getSpy).toHaveBeenCalledWith("/receipts/1");
   });
 
   it("listReceipts", async () => {
-    api.get = mock(async () =>
-      axiosResponse([])
-    ) as unknown as typeof api.get;
+    const getSpy = vi
+      .spyOn(api, "get")
+      .mockResolvedValue(axiosResponse([]));
 
     await listReceipts();
 
-    expect(api.get).toHaveBeenCalledWith("/receipts");
+    expect(getSpy).toHaveBeenCalledWith("/receipts");
   });
 
   it("updateReceipt sends version", async () => {
-    api.patch = mock(async () =>
-      axiosResponse({ _id: "1", version: 2 })
-    ) as unknown as typeof api.patch;
+    const patchSpy = vi
+      .spyOn(api, "patch")
+      .mockResolvedValue(
+        axiosResponse({ _id: "1", version: 2 })
+      );
 
     await updateReceipt("1", { version: 1 });
 
-    expect(api.patch).toHaveBeenCalledWith("/receipts/1", {
-      version: 1,
-    });
+    expect(patchSpy).toHaveBeenCalledWith(
+      "/receipts/1",
+      { version: 1 }
+    );
   });
 
   it("addMember", async () => {
-    api.post = mock(async () =>
-      axiosResponse({})
-    ) as unknown as typeof api.post;
+    const postSpy = vi
+      .spyOn(api, "post")
+      .mockResolvedValue(axiosResponse({}));
 
     await addMember("1", "user2");
 
-    expect(api.post).toHaveBeenCalledWith(
+    expect(postSpy).toHaveBeenCalledWith(
       "/receipts/1/members",
       { user_id: "user2" }
     );
   });
 
   it("removeMember", async () => {
-    api.delete = mock(async () =>
-      axiosResponse({})
-    ) as unknown as typeof api.delete;
+    const deleteSpy = vi
+      .spyOn(api, "delete")
+      .mockResolvedValue(axiosResponse({}));
 
     await removeMember("1", "user2");
 
-    expect(api.delete).toHaveBeenCalledWith(
+    expect(deleteSpy).toHaveBeenCalledWith(
       "/receipts/1/members/user2"
     );
   });
 
   it("getMembers", async () => {
-    api.get = mock(async () =>
-      axiosResponse([])
-    ) as unknown as typeof api.get;
+    const getSpy = vi
+      .spyOn(api, "get")
+      .mockResolvedValue(axiosResponse([]));
 
     await getMembers("1");
 
-    expect(api.get).toHaveBeenCalledWith(
+    expect(getSpy).toHaveBeenCalledWith(
       "/receipts/1/members"
     );
   });
 
   it("finalizeReceipt", async () => {
-    api.post = mock(async () =>
-      axiosResponse({ receipt: {}, ledger_entries: [] })
-    ) as unknown as typeof api.post;
+    const postSpy = vi
+      .spyOn(api, "post")
+      .mockResolvedValue(
+        axiosResponse({ receipt: {}, ledger_entries: [] })
+      );
 
     await finalizeReceipt("1");
 
-    expect(api.post).toHaveBeenCalledWith(
+    expect(postSpy).toHaveBeenCalledWith(
       "/receipts/1/finalize"
     );
   });

@@ -1,29 +1,33 @@
-import { describe, it, expect, mock } from "bun:test";
 import type { AxiosResponse } from "axios";
-import { api } from "@/api/axios";
+import { api } from "../src/api";
 import {
   createUser,
   getUserById,
   getUserByEmail,
   updateUser,
   deleteUser,
-} from "@/api/user.api";
+} from "../src/api/user.api";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const axiosResponse = <T>(data: T): AxiosResponse<T> => ({
   data,
   status: 200,
   statusText: "OK",
   headers: {},
-  config: {},
+  config: {} as any,
 });
 
 describe("User API", () => {
-  it("createUser", async () => {
-    const postMock = mock(async () =>
-      axiosResponse({ _id: "1", name: "A" })
-    ) as unknown as typeof api.post;
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
 
-    api.post = postMock;
+  it("createUser", async () => {
+    const postSpy = vi
+      .spyOn(api, "post")
+      .mockResolvedValue(
+        axiosResponse({ _id: "1", name: "A" })
+      );
 
     const result = await createUser({
       name: "A",
@@ -31,7 +35,7 @@ describe("User API", () => {
       password: "123",
     });
 
-    expect(postMock).toHaveBeenCalledWith("/users", {
+    expect(postSpy).toHaveBeenCalledWith("/users", {
       name: "A",
       email: "a@test.com",
       password: "123",
@@ -41,51 +45,52 @@ describe("User API", () => {
   });
 
   it("getUserById", async () => {
-    const getMock = mock(async () =>
-      axiosResponse({ _id: "1" })
-    ) as unknown as typeof api.get;
-
-    api.get = getMock;
+    const getSpy = vi
+      .spyOn(api, "get")
+      .mockResolvedValue(axiosResponse({ _id: "1" }));
 
     await getUserById("1");
 
-    expect(getMock).toHaveBeenCalledWith("/users/1");
+    expect(getSpy).toHaveBeenCalledWith("/users/1");
   });
 
   it("getUserByEmail", async () => {
-    const getMock = mock(async () =>
-      axiosResponse({ _id: "1" })
-    ) as unknown as typeof api.get;
-
-    api.get = getMock;
+    const getSpy = vi
+      .spyOn(api, "get")
+      .mockResolvedValue(axiosResponse({ _id: "1" }));
 
     await getUserByEmail("a@test.com");
 
-    expect(getMock).toHaveBeenCalledWith("/users/email/a@test.com");
+    expect(getSpy).toHaveBeenCalledWith(
+      "/users/email/a@test.com"
+    );
   });
 
   it("updateUser", async () => {
-    const patchMock = mock(async () =>
-      axiosResponse({ _id: "1", name: "B" })
-    ) as unknown as typeof api.patch;
-
-    api.patch = patchMock;
+    const patchSpy = vi
+      .spyOn(api, "patch")
+      .mockResolvedValue(
+        axiosResponse({ _id: "1", name: "B" })
+      );
 
     await updateUser("1", { name: "B" });
 
-    expect(patchMock).toHaveBeenCalledWith("/users/1", { name: "B" });
+    expect(patchSpy).toHaveBeenCalledWith(
+      "/users/1",
+      { name: "B" }
+    );
   });
 
   it("deleteUser", async () => {
-    const delMock = mock(async () =>
-      axiosResponse({ success: true })
-    ) as unknown as typeof api.delete;
-
-    api.delete = delMock;
+    const deleteSpy = vi
+      .spyOn(api, "delete")
+      .mockResolvedValue(
+        axiosResponse({ success: true })
+      );
 
     const res = await deleteUser("1");
 
-    expect(delMock).toHaveBeenCalledWith("/users/1");
+    expect(deleteSpy).toHaveBeenCalledWith("/users/1");
     expect(res).toBe(true);
   });
 });
