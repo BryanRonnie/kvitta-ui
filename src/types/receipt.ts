@@ -36,12 +36,13 @@ export interface ReceiptUpdate {
 
 export interface Participant {
   user_id: string;
+  name: string;
   role: "owner" | "member";
   joined_at: string;
 }
 
 export interface Receipt {
-  _id: string;
+  id: string;
   owner_id: string;
   title: string;
   description?: string;

@@ -101,7 +101,7 @@ export function ReceiptExample() {
 
     try {
       // 1. Update with current version
-      const updated = await updateReceipt(receipt._id, {
+      const updated = await updateReceipt(receipt.id, {
         version: receipt.version,
         title: newTitle,
       } as ReceiptUpdate);
@@ -115,11 +115,11 @@ export function ReceiptExample() {
 
         try {
           // 3. Refetch latest version
-          const latest = await getReceipt(receipt._id);
+          const latest = await getReceipt(receipt.id);
           setReceipt(latest);
 
           // 4. Retry with new version
-          const retried = await updateReceipt(receipt._id, {
+          const retried = await updateReceipt(receipt.id, {
             version: latest.version,
             title: newTitle,
           } as ReceiptUpdate);
@@ -154,7 +154,7 @@ export function ReceiptExample() {
     setError(null);
 
     try {
-      const updated = await addMember(receipt._id, userId);
+      const updated = await addMember(receipt.id, userId);
       setReceipt(updated);
       console.log("Member added:", userId);
     } catch (err) {
@@ -177,7 +177,7 @@ export function ReceiptExample() {
     setError(null);
 
     try {
-      const members = await getMembers(receipt._id);
+      const members = await getMembers(receipt.id);
       console.log("Members:", members);
     } catch (err) {
       const message =
@@ -199,7 +199,7 @@ export function ReceiptExample() {
     setError(null);
 
     try {
-      const result = await finalizeReceipt(receipt._id);
+      const result = await finalizeReceipt(receipt.id);
       setReceipt(result.receipt);
       console.log("Receipt finalized. Ledger entries:", result.ledger_entries);
     } catch (err) {
@@ -227,7 +227,7 @@ export function ReceiptExample() {
       {receipt && (
         <div style={{ marginBottom: "20px", padding: "10px", border: "1px solid #ccc" }}>
           <h2>{receipt.title}</h2>
-          <p>ID: {receipt._id}</p>
+          <p>ID: {receipt.id}</p>
           <p>Status: {receipt.status}</p>
           <p>Total: ${(receipt.total_cents / 100).toFixed(2)}</p>
           <p>Version: {receipt.version}</p>

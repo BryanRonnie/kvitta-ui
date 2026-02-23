@@ -1,7 +1,20 @@
 export type LedgerStatus = "pending" | "partially_settled" | "settled";
 
-export interface LedgerEntry {
+export interface LedgerEntryApi {
   _id: string;
+  receipt_id: string;
+  debtor_id: string;
+  creditor_id: string;
+  amount_cents: number;
+  settled_amount_cents: number;
+  status: LedgerStatus;
+  description?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LedgerEntry {
+  id: string;
   receipt_id: string;
   debtor_id: string;
   creditor_id: string;

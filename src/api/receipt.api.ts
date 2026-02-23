@@ -33,6 +33,20 @@ export const getReceipt = async (id: string): Promise<Receipt> => {
   return response.data;
 };
 
+/* --------------------------
+   Delete Receipts
+-------------------------- */
+
+/**
+ * Delete a single receipt by ID
+ * DELETE /receipts/{id}
+ */
+
+export const deleteReceipt = async (id: string): Promise<Receipt> => {
+  const response = await api.delete<Receipt>(`/receipts/${id}`);
+  return response.data;
+}
+
 /**
  * List all receipts for current user
  * GET /receipts

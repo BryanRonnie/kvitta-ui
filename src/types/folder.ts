@@ -9,11 +9,12 @@ export interface FolderUpdate {
 }
 
 export interface Folder {
-  _id: string;
+  id: string;
   name: string;
   color: string;
   owner_id: string;
   is_deleted: boolean;
   created_at: string;
   updated_at: string;
+  receipt_count?: number;
 }

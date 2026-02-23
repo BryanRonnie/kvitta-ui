@@ -1,5 +1,33 @@
 import { api } from "./axios";
-import { LedgerEntry, UserBalance, SettleRequest } from "../types/ledger";
+import { LedgerEntry, UserBalance, SettleRequest, LedgerEntryApi } from "../types/ledger";
+
+const mapLedgerEntry = (f: LedgerEntryApi): LedgerEntry => ({
+  id: f._id,
+  receipt_id: f.receipt_id,
+  debtor_id: f.debtor_id,
+  creditor_id: f.creditor_id,
+  amount_cents: f.amount_cents,
+  settled_amount_cents: f.settled_amount_cents,
+  status: f.status,
+  description: f.description,
+  created_at: f.created_at,
+  updated_at: f.updated_at
+});
+
+const mapLedgerEntries = (fs: LedgerEntryApi[]): LedgerEntry[] => (fs.map((f: LedgerEntryApi) => {
+  return {
+    id: f._id,
+    receipt_id: f.receipt_id,
+    debtor_id: f.debtor_id,
+    creditor_id: f.creditor_id,
+    amount_cents: f.amount_cents,
+    settled_amount_cents: f.settled_amount_cents,
+    status: f.status,
+    description: f.description,
+    created_at: f.created_at,
+    updated_at: f.updated_at
+  }
+}));
 
 /* --------------------------
    Get ledger entries by receipt
@@ -13,10 +41,10 @@ import { LedgerEntry, UserBalance, SettleRequest } from "../types/ledger";
 export const getLedgerByReceipt = async (
   receiptId: string
 ): Promise<LedgerEntry[]> => {
-  const response = await api.get<LedgerEntry[]>(
+  const response = await api.get<LedgerEntryApi[]>(
     `/ledger/receipt/${receiptId}`
   );
-  return response.data;
+  return mapLedgerEntries(response.data);
 };
 
 /* --------------------------
@@ -59,11 +87,11 @@ export const settleLedgerEntry = async (
 ): Promise<LedgerEntry> => {
   const payload: SettleRequest = { amount_cents };
 
-  const response = await api.post<LedgerEntry>(
+  const response = await api.post<LedgerEntryApi>(
     `/ledger/${entryId}/settle`,
     payload
   );
-  return response.data;
+  return mapLedgerEntry(response.data);
 };
 
 /* --------------------------

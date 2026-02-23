@@ -84,7 +84,7 @@ export function LedgerExample() {
 
       // Update entries list
       setEntries(
-        entries.map((e) => (e._id === entryId ? updatedEntry : e))
+        entries.map((e) => (e.id === entryId ? updatedEntry : e))
       );
     } catch (err) {
       const message =
@@ -156,7 +156,7 @@ export function LedgerExample() {
             <h3>Entries ({entries.length})</h3>
             {entries.map((entry) => (
               <div
-                key={entry._id}
+                key={entry.id}
                 style={{
                   marginBottom: "12px",
                   padding: "10px",
@@ -181,7 +181,7 @@ export function LedgerExample() {
                 </div>
                 <button
                   onClick={() =>
-                    handleSettleEntry(entry._id, entry.amount_cents / 2)
+                    handleSettleEntry(entry.id, entry.amount_cents / 2)
                   }
                   disabled={loading || entry.status === "settled"}
                   style={{ marginTop: "8px", fontSize: "0.85em" }}

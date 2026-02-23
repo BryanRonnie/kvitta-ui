@@ -28,7 +28,7 @@ describe("Receipt API", () => {
   it("createReceipt", async () => {
     const postSpy = vi
       .spyOn(api, "post")
-      .mockResolvedValue(axiosResponse({ _id: "1" }));
+      .mockResolvedValue(axiosResponse({ id: "1" }));
 
     await createReceipt({ title: "Dinner" });
 
@@ -40,7 +40,7 @@ describe("Receipt API", () => {
   it("getReceipt", async () => {
     const getSpy = vi
       .spyOn(api, "get")
-      .mockResolvedValue(axiosResponse({ _id: "1" }));
+      .mockResolvedValue(axiosResponse({ id: "1" }));
 
     await getReceipt("1");
 
@@ -61,7 +61,7 @@ describe("Receipt API", () => {
     const patchSpy = vi
       .spyOn(api, "patch")
       .mockResolvedValue(
-        axiosResponse({ _id: "1", version: 2 })
+        axiosResponse({ id: "1", version: 2 })
       );
 
     await updateReceipt("1", { version: 1 });

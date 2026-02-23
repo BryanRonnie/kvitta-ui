@@ -26,7 +26,7 @@ describe("User API", () => {
     const postSpy = vi
       .spyOn(api, "post")
       .mockResolvedValue(
-        axiosResponse({ _id: "1", name: "A" })
+        axiosResponse({ id: "1", name: "A" })
       );
 
     const result = await createUser({
@@ -41,13 +41,13 @@ describe("User API", () => {
       password: "123",
     });
 
-    expect(result._id).toBe("1");
+    expect(result.id).toBe("1");
   });
 
   it("getUserById", async () => {
     const getSpy = vi
       .spyOn(api, "get")
-      .mockResolvedValue(axiosResponse({ _id: "1" }));
+      .mockResolvedValue(axiosResponse({ id: "1" }));
 
     await getUserById("1");
 
@@ -57,7 +57,7 @@ describe("User API", () => {
   it("getUserByEmail", async () => {
     const getSpy = vi
       .spyOn(api, "get")
-      .mockResolvedValue(axiosResponse({ _id: "1" }));
+      .mockResolvedValue(axiosResponse({ id: "1" }));
 
     await getUserByEmail("a@test.com");
 
@@ -70,7 +70,7 @@ describe("User API", () => {
     const patchSpy = vi
       .spyOn(api, "patch")
       .mockResolvedValue(
-        axiosResponse({ _id: "1", name: "B" })
+        axiosResponse({ id: "1", name: "B" })
       );
 
     await updateUser("1", { name: "B" });

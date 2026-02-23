@@ -4,7 +4,16 @@ export interface UserCreate {
   password: string;
 }
 
-export interface User {
+export interface Participants {
+  id: string;
+  name: string;
+  email: string;
+  is_deleted: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface UserApi {
   _id: string;
   name: string;
   email: string;
