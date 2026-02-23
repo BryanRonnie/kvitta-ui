@@ -23,11 +23,11 @@ export function Sidebar({
   const { user, logout } = useAuth();
 
   return (
-    <aside className="w-[280px] h-screen fixed left-0 top-0 bg-white border-r border-slate-200 flex flex-col z-40">
+    <aside className="w-70 h-screen fixed left-0 top-0 bg-white border-r border-slate-200 flex flex-col z-40">
       {/* Header */}
       <div className="p-6 pb-4 border-b border-slate-200">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg flex items-center justify-center">
+          <div className="w-8 h-8 bg-linear-to-br from-indigo-500 to-purple-600 rounded-lg flex items-center justify-center">
             <LayoutGrid className="w-5 h-5 text-white" />
           </div>
           <span className="text-xl font-bold">Kvitta</span>
@@ -80,7 +80,7 @@ export function Sidebar({
                     <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-3/5 bg-indigo-600 rounded-r" />
                   )}
                   <FolderIcon
-                    className="w-5 h-5 flex-shrink-0"
+                    className="w-5 h-5 shrink-0"
                     style={{ color: folder.color }}
                   />
                   <span className="flex-1 text-left truncate">{folder.name}</span>
@@ -99,7 +99,7 @@ export function Sidebar({
       {/* User Profile */}
       <div className="p-4 border-t border-slate-200">
         <div className="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-50 cursor-pointer transition-colors">
-          <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-white font-semibold text-sm flex-shrink-0">
+          <div className="w-10 h-10 bg-linear-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-white font-semibold text-sm shrink-0">
             {user?.name?.charAt(0).toUpperCase() || user?.email?.charAt(0).toUpperCase() || "U"}
           </div>
           <div className="flex-1 min-w-0">

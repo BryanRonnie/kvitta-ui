@@ -37,7 +37,7 @@ export function DashboardSidebar({
         <Sidebar collapsible="icon">
             <SidebarHeader>
                 <div className="flex items-center gap-3 px-2 py-2">
-                    <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg flex items-center justify-center">
+                    <div className="w-8 h-8 bg-linear-to-br from-indigo-500 to-purple-600 rounded-lg flex items-center justify-center">
                         <LayoutGrid className="w-5 h-5 text-white" />
                     </div>
                     <span className="text-xl font-bold group-data-[collapsible=icon]:hidden">Kvitta</span>
@@ -83,7 +83,7 @@ export function DashboardSidebar({
                                                 isActive={selectedFolderId === folder.id}
                                             >
                                                 <FolderIcon
-                                                    className="w-5 h-5 flex-shrink-0"
+                                                    className="w-5 h-5 shrink-0"
                                                     style={{ color: folder.color }}
                                                 />
                                                 <span className="flex-1 truncate">{folder.name}</span>
@@ -108,7 +108,7 @@ export function DashboardSidebar({
                 <SidebarMenu>
                     <SidebarMenuItem>
                         <SidebarMenuButton className="hover:bg-slate-50">
-                            <div className="w-8 h-8 bg-linear-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-white font-semibold text-sm flex-shrink-0">
+                            <div className="w-8 h-8 bg-linear-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-white font-semibold text-sm shrink-0">
                                 {user?.name?.charAt(0).toUpperCase() ||
                                     user?.email?.charAt(0).toUpperCase() ||
                                     "U"}

@@ -71,7 +71,7 @@ export function ReceiptCard({ receipt, onView, onEdit, onDelete }: ReceiptCardPr
           </div>
 
           {/* Items */}
-          <div className="flex-1 mb-4 pb-4 border-b border-dashed border-slate-300 max-h-[180px] overflow-y-auto scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-transparent">
+          <div className="flex-1 mb-4 pb-4 border-b border-dashed border-slate-300 max-h-45 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-transparent">
             {displayItems.length > 0 ? (
               <div className="space-y-2.5">
                 {displayItems.map((item: any, idx: number) => (
@@ -120,7 +120,7 @@ export function ReceiptCard({ receipt, onView, onEdit, onDelete }: ReceiptCardPr
               {receipt.participants?.slice(0, 3).map((p, idx) => (
                 <div
                   key={p.user_id}
-                  className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-white text-xs font-semibold border-2 border-white"
+                  className="w-8 h-8 bg-linear-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-white text-xs font-semibold border-2 border-white"
                   style={{ marginLeft: idx > 0 ? "-8px" : "0" }}
                 >
                   {p.user_id.charAt(0).toUpperCase()}

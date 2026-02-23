@@ -256,7 +256,7 @@ export default function ReceiptDetailPage({
                         className="flex items-center justify-between py-2"
                       >
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-white font-semibold">
+                          <div className="w-10 h-10 bg-linear-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-white font-semibold">
                             {p.name
                             .trim()
                             .split(/\s+/)

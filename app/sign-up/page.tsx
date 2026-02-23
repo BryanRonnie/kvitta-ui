@@ -50,7 +50,7 @@ export default function SignUpPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100">
+    <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-slate-50 to-slate-100">
       <Card className="w-full max-w-md p-8 shadow-lg">
         <div className="space-y-6">
           <div className="space-y-2 text-center">
