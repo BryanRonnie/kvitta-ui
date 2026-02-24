@@ -11,6 +11,8 @@ import {
   ChevronDown,
   X,
   AlertCircle,
+  Upload,
+  Check,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -78,8 +80,14 @@ export default function ReceiptEditPage({
   });
 
   // Item split modal state
-  const [editingSplitsIdx, setEditingSplitsIdx] = useState<string | number | null>(null);
   const [itemSplits, setItemSplits] = useState<{ [key: string]: boolean }>({});
+
+  // CSV Import state
+  const [showBulkImport, setShowBulkImport] = useState(false);
+  const [csvInput, setCsvInput] = useState("");
+  const [parsedItems, setParsedItems] = useState<ItemInput[]>([]);
+  const [importError, setImportError] = useState("");
+  const [importSuccess, setImportSuccess] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -167,12 +175,119 @@ export default function ReceiptEditPage({
     }));
   };
 
-  const getItemSplitCount = (itemIdx: number) => {
-    const count = receipt?.participants?.filter((p) => {
-      const key = `${itemIdx}-${p.user_id}`;
-      return itemSplits[key];
-    }).length || 0;
-    return count > 0 ? count : "Unassigned";
+  const parseCSVInput = () => {
+    setImportError("");
+    setImportSuccess(false);
+    setParsedItems([]);
+
+    if (!csvInput.trim()) {
+      setImportError("Please paste CSV/TSV data");
+      return;
+    }
+
+    try {
+      const lines = csvInput
+        .trim()
+        .split("\n")
+        .filter((line) => line.trim());
+
+      if (lines.length === 0) {
+        setImportError("No valid rows found");
+        return;
+      }
+
+      const parsed: ItemInput[] = [];
+      const errors: string[] = [];
+
+      lines.forEach((line, idx) => {
+        // Handle both CSV (comma) and TSV (tab) delimiters
+        const values = line
+          .split(",")
+          .map((v) => v.trim());
+
+        if (values.length < 4) {
+          errors.push(
+            `Row ${idx + 1}: Expected 4 fields (name, qty, price, taxable), got ${values.length}`
+          );
+          return;
+        }
+
+        const [name, qtyStr, priceStr, taxableStr] = values;
+
+        // Validate name
+        if (!name) {
+          errors.push(`Row ${idx + 1}: Item name is required`);
+          return;
+        }
+
+        // Parse quantity
+        const qty = parseInt(qtyStr, 10);
+        if (isNaN(qty) || qty < 0) {
+          errors.push(
+            `Row ${idx + 1}: Quantity must be a positive number, got "${qtyStr}"`
+          );
+          return;
+        }
+
+        // Parse price (line total)
+        const lineTotal = parseFloat(priceStr);
+        if (isNaN(lineTotal) || lineTotal < 0) {
+          errors.push(
+            `Row ${idx + 1}: Price must be a valid number, got "${priceStr}"`
+          );
+          return;
+        }
+
+        // Calculate unit price from line total
+        const unitPriceCents = Math.round((lineTotal / qty) * 100);
+
+        // Parse taxable
+        const taxableStr_Upper = taxableStr.toUpperCase();
+        const taxable =
+          taxableStr_Upper === "TRUE" ||
+          taxableStr_Upper === "1" ||
+          taxableStr_Upper === "YES";
+
+        parsed.push({
+          name: name,
+          quantity: qty,
+          unit_price_cents: unitPriceCents,
+          taxable: taxable,
+          splits: [],
+        });
+      });
+
+      if (errors.length > 0) {
+        setImportError(errors.join("\n"));
+        return;
+      }
+
+      if (parsed.length === 0) {
+        setImportError("No valid items to import");
+        return;
+      }
+
+      setParsedItems(parsed);
+      setImportSuccess(true);
+    } catch (err) {
+      setImportError(`Parse error: ${err instanceof Error ? err.message : "Unknown error"}`);
+    }
+  };
+
+  const handleAddBulkItems = () => {
+    setItems([...items, ...parsedItems]);
+    setCsvInput("");
+    setParsedItems([]);
+    setImportSuccess(false);
+    setShowBulkImport(false);
+  };
+
+  const resetBulkImport = () => {
+    setCsvInput("");
+    setParsedItems([]);
+    setImportError("");
+    setImportSuccess(false);
+    setShowBulkImport(false);
   };
 
   const handleAddMember = async () => {
@@ -224,27 +339,40 @@ export default function ReceiptEditPage({
       return;
     }
 
-    // Build items with splits
-    const itemsWithSplits = items.map((item, idx) => ({
-      ...item,
-      splits: receipt.participants
-        ?.filter((p) => {
-          const key = `${idx}-${p.user_id}`;
-          return itemSplits[key];
-        })
-        .map((p) => p.user_id) || [],
-    }));
+    // Build items with splits - share_quantity is the ratio of qty divided by number of splits
+    const itemsWithSplits = items.map((item, idx) => {
+      const selectedParticipants = receipt.participants?.filter((p) => {
+        const key = `${idx}-${p.user_id}`;
+        return itemSplits[key];
+      }) || [];
+
+      const splitCount = selectedParticipants.length;
+      const shareQty = splitCount > 0 ? item.quantity / splitCount : item.quantity;
+
+      return {
+        ...item,
+        splits: selectedParticipants.map((p) => ({
+          user_id: p.user_id,
+          share_quantity: shareQty,
+        })),
+      };
+    });
 
     // Build charges with splits
-    const chargesWithSplits = charges.map((charge, idx) => ({
-      ...charge,
-      splits: receipt.participants
-        ?.filter((p) => {
-          const key = `charge-${idx}-${p.user_id}`;
-          return itemSplits[key];
-        })
-        .map((p) => p.user_id) || [],
-    }));
+    const chargesWithSplits = charges.map((charge, idx) => {
+      const selectedParticipants = receipt.participants?.filter((p) => {
+        const key = `charge-${idx}-${p.user_id}`;
+        return itemSplits[key];
+      }) || [];
+
+      return {
+        ...charge,
+        splits: selectedParticipants.map((p) => ({
+          user_id: p.user_id,
+          share_quantity: 1,
+        })),
+      };
+    });
 
     setIsSaving(true);
     try {
@@ -459,71 +587,98 @@ export default function ReceiptEditPage({
 
             {/* Items */}
             <Card className="p-6">
-              <h2 className="text-lg font-semibold mb-4">Items</h2>
+              <h2 className="text-lg font-semibold mb-4">Items & Assignment</h2>
 
               {items.length > 0 && (
-                <div className="mb-4 space-y-2 max-h-75 overflow-y-auto">
-                  {items.map((item, idx) => (
-                    <div key={idx} className="p-3 bg-slate-50 rounded-lg space-y-2">
-                      <div className="flex items-center justify-between">
-                        <div className="flex-1">
-                          <p className="font-medium">{item.name}</p>
-                          <p className="text-sm text-slate-500">
-                            {item.quantity} × {formatCurrency(item.unit_price_cents)} {item.taxable && "• Taxable"}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <span className="font-semibold">
-                            {formatCurrency(item.unit_price_cents * item.quantity)}
-                          </span>
-                          <div className="flex gap-2">
-                            <button
-                              onClick={() => setEditingSplitsIdx(editingSplitsIdx === idx ? null : idx)}
-                              className="px-2 py-1 text-xs bg-indigo-100 text-indigo-700 rounded hover:bg-indigo-200"
-                              disabled={isSaving}
-                              title="Edit splits"
-                            >
-                              {getItemSplitCount(idx)} paid by
-                            </button>
+                <div className="mb-4 overflow-x-auto">
+                  <table className="w-full border-collapse text-sm">
+                    <thead>
+                      <tr className="border-b-2 border-slate-300">
+                        <th className="text-left p-2 font-semibold text-slate-700 sticky left-0 bg-slate-50 z-10 w-40">
+                          Item
+                        </th>
+                        <th className="text-center p-2 font-semibold text-slate-700 w-16">
+                          Qty
+                        </th>
+                        <th className="text-center p-2 font-semibold text-slate-700 w-20">
+                          Price
+                        </th>
+                        <th className="text-center p-2 font-semibold text-slate-700 w-12">
+                          Tax
+                        </th>
+                        {receipt?.participants?.map((p) => (
+                          <th
+                            key={p.user_id}
+                            className="text-center p-2 font-semibold text-slate-700 w-14"
+                          >
+                            <div className="text-xs truncate" title={p.name}>
+                              {p.name.split(" ")[0]}
+                            </div>
+                          </th>
+                        ))}
+                        <th className="text-center p-2 font-semibold text-slate-700 w-8">
+                          Actions
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {items.map((item, idx) => (
+                        <tr
+                          key={idx}
+                          className="border-b border-slate-200 hover:bg-slate-50"
+                        >
+                          <td className="p-2 sticky left-0 bg-white hover:bg-slate-50 z-10">
+                            <div className="font-medium text-slate-900">
+                              {item.name}
+                            </div>
+                            <div className="text-xs text-slate-500">
+                              {item.taxable ? "Taxable" : "Non-taxable"}
+                            </div>
+                          </td>
+                          <td className="text-center p-2">{item.quantity}</td>
+                          <td className="text-center p-2">
+                            {formatCurrency(item.unit_price_cents)}
+                          </td>
+                          <td className="text-center p-2">
+                            <span className="text-xs bg-slate-100 px-2 py-1 rounded">
+                              {item.taxable ? "✓" : "—"}
+                            </span>
+                          </td>
+                          {receipt?.participants?.map((p) => {
+                            const key = `${idx}-${p.user_id}`;
+                            const isSelected = itemSplits[key];
+                            return (
+                              <td key={p.user_id} className="text-center p-2">
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected || false}
+                                  onChange={() => toggleItemSplit(idx, p.user_id)}
+                                  disabled={isSaving}
+                                  className="w-4 h-4 cursor-pointer"
+                                />
+                              </td>
+                            );
+                          })}
+                          <td className="text-center p-2">
                             <button
                               onClick={() => handleRemoveItem(idx)}
-                              className="p-2 hover:bg-red-100 text-red-600 rounded"
+                              className="p-1 hover:bg-red-100 text-red-600 rounded"
                               disabled={isSaving}
+                              title="Delete item"
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>
-                          </div>
-                        </div>
-                      </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
 
-                      {/* Splits Editor */}
-                      {editingSplitsIdx === idx && (
-                        <div className="mt-3 pt-3 border-t border-slate-200 space-y-2">
-                          <p className="text-xs font-semibold text-slate-600">Who should pay for this item?</p>
-                          <div className="flex flex-wrap gap-2">
-                            {receipt?.participants?.map((p) => {
-                              const key = `${idx}-${p.user_id}`;
-                              const isSelected = itemSplits[key];
-                              return (
-                                <button
-                                  key={p.user_id}
-                                  onClick={() => toggleItemSplit(idx, p.user_id)}
-                                  className={`px-2 py-1 text-xs rounded transition-colors ${
-                                    isSelected
-                                      ? "bg-indigo-500 text-white"
-                                      : "bg-white border border-slate-300 text-slate-600 hover:border-indigo-500"
-                                  }`}
-                                  disabled={isSaving}
-                                >
-                                  {p.name}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  ))}
+              {!showAddItem && items.length > 0 && (
+                <div className="mt-4 text-xs text-slate-500 bg-blue-50 p-3 rounded">
+                  ✓ Check participants to assign items. Each split divides the quantity equally.
                 </div>
               )}
 
@@ -618,87 +773,214 @@ export default function ReceiptEditPage({
                   </div>
                 </div>
               ) : (
-                <Button
-                  variant="outline"
-                  onClick={() => setShowAddItem(true)}
-                  disabled={isSaving}
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Add Item
-                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowAddItem(true)}
+                    disabled={isSaving}
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add Item
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowBulkImport(!showBulkImport)}
+                    disabled={isSaving}
+                  >
+                    <Upload className="w-4 h-4 mr-2" />
+                    Bulk Import CSV/TSV
+                  </Button>
+                </div>
+              )}
+
+              {/* Bulk Import Section */}
+              {showBulkImport && (
+                <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg space-y-3">
+                  <div>
+                    <Label htmlFor="csv-input" className="text-sm font-semibold">
+                      Paste CSV or TSV Data
+                    </Label>
+                    <p className="text-xs text-slate-500 mb-2">
+                      Format: Item Name, Qty, Line Total Price ($), Taxable (TRUE/FALSE)
+                    </p>
+                    <textarea
+                      id="csv-input"
+                      value={csvInput}
+                      onChange={(e) => {
+                        setCsvInput(e.target.value);
+                        setImportError("");
+                        setImportSuccess(false);
+                      }}
+                      placeholder="HUY FONG CHILI SAUCE,1,5.99,FALSE&#10;BREAKFAST COCONUT C,1,1.79,FALSE&#10;PRIMO PASTA SCE,2,1.68,FALSE"
+                      className="w-full px-3 py-2 border border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm font-mono"
+                      rows={5}
+                      disabled={isSaving}
+                    />
+                  </div>
+
+                  {/* Error Display */}
+                  {importError && (
+                    <div className="p-3 bg-red-50 border border-red-200 rounded">
+                      <p className="text-xs font-semibold text-red-700 mb-1">Import Error</p>
+                      <p className="text-xs text-red-600 whitespace-pre-wrap">{importError}</p>
+                    </div>
+                  )}
+
+                  {/* Preview of Parsed Items */}
+                  {importSuccess && parsedItems.length > 0 && (
+                    <div className="p-3 bg-green-50 border border-green-200 rounded space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Check className="w-4 h-4 text-green-600" />
+                        <p className="text-sm font-semibold text-green-700">
+                          Ready to import {parsedItems.length} item{parsedItems.length !== 1 ? "s" : ""}
+                        </p>
+                      </div>
+                      <div className="space-y-1 max-h-40 overflow-y-auto">
+                        {parsedItems.map((item, idx) => (
+                          <div key={idx} className="text-xs text-green-700 bg-white/50 px-2 py-1 rounded">
+                            <span className="font-medium">{item.name}</span>
+                            <span className="text-slate-500"> · </span>
+                            <span>{item.quantity}x</span>
+                            <span className="text-slate-500"> @ </span>
+                            <span>{formatCurrency(item.unit_price_cents)}</span>
+                            {item.taxable && <span className="text-slate-500"> · Taxable</span>}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Action Buttons */}
+                  <div className="flex gap-2 pt-2">
+                    {!importSuccess ? (
+                      <>
+                        <Button
+                          size="sm"
+                          onClick={parseCSVInput}
+                          disabled={isSaving || !csvInput.trim()}
+                          className="bg-blue-600 hover:bg-blue-700"
+                        >
+                          Parse & Preview
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={resetBulkImport}
+                          disabled={isSaving}
+                        >
+                          Cancel
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <Button
+                          size="sm"
+                          onClick={handleAddBulkItems}
+                          disabled={isSaving}
+                          className="bg-green-600 hover:bg-green-700"
+                        >
+                          <Check className="w-4 h-4 mr-2" />
+                          Add All Items
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={resetBulkImport}
+                          disabled={isSaving}
+                        >
+                          Cancel
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                </div>
               )}
             </Card>
 
             {/* Charges */}
             <Card className="p-6">
-              <h2 className="text-lg font-semibold mb-4">Additional Charges</h2>
+              <h2 className="text-lg font-semibold mb-4">Additional Charges & Assignment</h2>
 
               {charges.length > 0 && (
-                <div className="mb-4 space-y-2 max-h-75 overflow-y-auto">
-                  {charges.map((charge, idx) => (
-                    <div key={idx} className="p-3 bg-slate-50 rounded-lg space-y-2">
-                      <div className="flex items-center justify-between">
-                        <div className="flex-1">
-                          <p className="font-medium">{charge.name}</p>
-                          <p className="text-sm text-slate-500">
-                            {charge.taxable && "Taxable •"} Fee
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <span className="font-semibold">
+                <div className="mb-4 overflow-x-auto">
+                  <table className="w-full border-collapse text-sm">
+                    <thead>
+                      <tr className="border-b-2 border-slate-300">
+                        <th className="text-left p-2 font-semibold text-slate-700 sticky left-0 bg-slate-50 z-10 w-40">
+                          Charge
+                        </th>
+                        <th className="text-center p-2 font-semibold text-slate-700 w-20">
+                          Amount
+                        </th>
+                        <th className="text-center p-2 font-semibold text-slate-700 w-12">
+                          Tax
+                        </th>
+                        {receipt?.participants?.map((p) => (
+                          <th
+                            key={p.user_id}
+                            className="text-center p-2 font-semibold text-slate-700 w-14"
+                          >
+                            <div className="text-xs truncate" title={p.name}>
+                              {p.name.split(" ")[0]}
+                            </div>
+                          </th>
+                        ))}
+                        <th className="text-center p-2 font-semibold text-slate-700 w-8">
+                          Actions
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {charges.map((charge, idx) => (
+                        <tr
+                          key={idx}
+                          className="border-b border-slate-200 hover:bg-slate-50"
+                        >
+                          <td className="p-2 sticky left-0 bg-white hover:bg-slate-50 z-10">
+                            <div className="font-medium text-slate-900">
+                              {charge.name}
+                            </div>
+                            <div className="text-xs text-slate-500">
+                              Fee
+                            </div>
+                          </td>
+                          <td className="text-center p-2">
                             {formatCurrency(charge.unit_price_cents)}
-                          </span>
-                          <div className="flex gap-2">
-                            <button
-                              onClick={() => setEditingSplitsIdx(editingSplitsIdx === `charge-${idx}` ? null : `charge-${idx}`)}
-                              className="px-2 py-1 text-xs bg-indigo-100 text-indigo-700 rounded hover:bg-indigo-200"
-                              disabled={isSaving}
-                              title="Edit splits"
-                            >
-                              {receipt?.participants?.filter((p) => {
-                                const key = `charge-${idx}-${p.user_id}`;
-                                return itemSplits[key];
-                              }).length || "Unassigned"} paid by
-                            </button>
+                          </td>
+                          <td className="text-center p-2">
+                            <span className="text-xs bg-slate-100 px-2 py-1 rounded">
+                              {charge.taxable ? "✓" : "—"}
+                            </span>
+                          </td>
+                          {receipt?.participants?.map((p) => {
+                            const key = `charge-${idx}-${p.user_id}`;
+                            const isSelected = itemSplits[key];
+                            return (
+                              <td key={p.user_id} className="text-center p-2">
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected || false}
+                                  onChange={() => toggleChargeSplit(idx, p.user_id)}
+                                  disabled={isSaving}
+                                  className="w-4 h-4 cursor-pointer"
+                                />
+                              </td>
+                            );
+                          })}
+                          <td className="text-center p-2">
                             <button
                               onClick={() => handleRemoveCharge(idx)}
-                              className="p-2 hover:bg-red-100 text-red-600 rounded"
+                              className="p-1 hover:bg-red-100 text-red-600 rounded"
                               disabled={isSaving}
+                              title="Delete charge"
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Splits Editor */}
-                      {editingSplitsIdx === `charge-${idx}` && (
-                        <div className="mt-3 pt-3 border-t border-slate-200 space-y-2">
-                          <p className="text-xs font-semibold text-slate-600">Who should pay for this charge?</p>
-                          <div className="flex flex-wrap gap-2">
-                            {receipt?.participants?.map((p) => {
-                              const key = `charge-${idx}-${p.user_id}`;
-                              const isSelected = itemSplits[key];
-                              return (
-                                <button
-                                  key={p.user_id}
-                                  onClick={() => toggleChargeSplit(idx, p.user_id)}
-                                  className={`px-2 py-1 text-xs rounded transition-colors ${
-                                    isSelected
-                                      ? "bg-indigo-500 text-white"
-                                      : "bg-white border border-slate-300 text-slate-600 hover:border-indigo-500"
-                                  }`}
-                                  disabled={isSaving}
-                                >
-                                  {p.name}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  ))}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               )}
 
