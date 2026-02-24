@@ -123,7 +123,13 @@ export function ReceiptCard({ receipt, onView, onEdit, onDelete }: ReceiptCardPr
                   className="w-8 h-8 bg-linear-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-white text-xs font-semibold border-2 border-white"
                   style={{ marginLeft: idx > 0 ? "-8px" : "0" }}
                 >
-                  {p.user_id.charAt(0).toUpperCase()}
+                  {p.name
+                  .trim()
+                  .split(/\s+/)
+                  .slice(0, 2)
+                  .map(word => word[0])
+                  .join("")
+                  .toUpperCase()}
                 </div>
               ))}
             </div>

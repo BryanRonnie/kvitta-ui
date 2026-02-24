@@ -89,11 +89,11 @@ export const updateReceipt = async (
  */
 export const addMember = async (
   receiptId: string,
-  userId: string
+  email: string
 ): Promise<Receipt> => {
   const response = await api.post<Receipt>(
     `/receipts/${receiptId}/members`,
-    { user_id: userId }
+    { email: email }
   );
   return response.data;
 };

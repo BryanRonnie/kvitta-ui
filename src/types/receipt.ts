@@ -7,6 +7,14 @@ export interface ItemInput {
   name: string;
   unit_price_cents: number;
   quantity: number;
+  taxable?: boolean;
+  splits: SplitInput[];
+}
+
+export interface ChargeInput {
+  name: string;
+  unit_price_cents: number;
+  taxable?: boolean;
   splits: SplitInput[];
 }
 
@@ -28,7 +36,9 @@ export interface ReceiptUpdate {
   description?: string;
   comments?: string;
   folder_id?: string | null;
+  status?: "draft" | "finalized";
   items?: ItemInput[];
+  charges?: ChargeInput[];
   payments?: PaymentInput[];
   tax_cents?: number;
   tip_cents?: number;
@@ -51,6 +61,7 @@ export interface Receipt {
   status: "draft" | "finalized";
   participants: Participant[];
   items: any[];
+  charges: any[];
   payments: any[];
   subtotal_cents: number;
   tax_cents: number;

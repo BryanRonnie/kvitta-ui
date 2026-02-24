@@ -10,6 +10,7 @@ import {
   Users,
   ChevronDown,
   X,
+  AlertCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -44,9 +45,12 @@ export default function ReceiptEditPage({
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [comments, setComments] = useState("");
+  const [folderId, setFolderId] = useState<string | null>(null);
+  const [status, setStatus] = useState<"draft" | "finalized">("draft");
   const [taxCents, setTaxCents] = useState(0);
   const [tipCents, setTipCents] = useState(0);
   const [items, setItems] = useState<ItemInput[]>([]);
+  const [charges, setCharges] = useState<any[]>([]);
   const [payments, setPayments] = useState<PaymentInput[]>([]);
 
   // Member management
@@ -60,8 +64,22 @@ export default function ReceiptEditPage({
     name: "",
     unit_price_cents: 0,
     quantity: 1,
+    taxable: true,
     splits: [],
   });
+
+  // Charge form
+  const [showAddCharge, setShowAddCharge] = useState(false);
+  const [newCharge, setNewCharge] = useState({
+    name: "",
+    unit_price_cents: 0,
+    taxable: false,
+    splits: [],
+  });
+
+  // Item split modal state
+  const [editingSplitsIdx, setEditingSplitsIdx] = useState<string | number | null>(null);
+  const [itemSplits, setItemSplits] = useState<{ [key: string]: boolean }>({});
 
   useEffect(() => {
     loadData();
@@ -81,9 +99,12 @@ export default function ReceiptEditPage({
       setTitle(receiptData.title);
       setDescription(receiptData.description || "");
       setComments(receiptData.comments || "");
+      setFolderId(receiptData.folder_id || null);
+      setStatus((receiptData.status as "draft" | "finalized") || "draft");
       setTaxCents(receiptData.tax_cents || 0);
       setTipCents(receiptData.tip_cents || 0);
       setItems(receiptData.items || []);
+      setCharges(receiptData.charges || []);
       setPayments(receiptData.payments || []);
     } catch (err) {
       console.error("Failed to load receipt:", err);
@@ -103,12 +124,55 @@ export default function ReceiptEditPage({
     }
 
     setItems([...items, newItem]);
-    setNewItem({ name: "", unit_price_cents: 0, quantity: 1, splits: [] });
+    setNewItem({ name: "", unit_price_cents: 0, quantity: 1, taxable: true, splits: [] });
     setShowAddItem(false);
   };
 
   const handleRemoveItem = (idx: number) => {
     setItems(items.filter((_, i) => i !== idx));
+  };
+
+  const handleAddCharge = () => {
+    if (!newCharge.name.trim()) {
+      alert("Charge name is required");
+      return;
+    }
+    if (newCharge.unit_price_cents < 0) {
+      alert("Charge amount must be valid");
+      return;
+    }
+
+    setCharges([...charges, newCharge]);
+    setNewCharge({ name: "", unit_price_cents: 0, taxable: false, splits: [] });
+    setShowAddCharge(false);
+  };
+
+  const handleRemoveCharge = (idx: number) => {
+    setCharges(charges.filter((_, i) => i !== idx));
+  };
+
+  const toggleItemSplit = (itemIdx: number, userId: string) => {
+    const key = `${itemIdx}-${userId}`;
+    setItemSplits((prev) => ({
+      ...prev,
+      [key]: !prev[key],
+    }));
+  };
+
+  const toggleChargeSplit = (chargeIdx: number, userId: string) => {
+    const key = `charge-${chargeIdx}-${userId}`;
+    setItemSplits((prev) => ({
+      ...prev,
+      [key]: !prev[key],
+    }));
+  };
+
+  const getItemSplitCount = (itemIdx: number) => {
+    const count = receipt?.participants?.filter((p) => {
+      const key = `${itemIdx}-${p.user_id}`;
+      return itemSplits[key];
+    }).length || 0;
+    return count > 0 ? count : "Unassigned";
   };
 
   const handleAddMember = async () => {
@@ -135,9 +199,9 @@ export default function ReceiptEditPage({
     }
   };
 
-  const handleRemoveMember = async (userId: string) => {
+  const handleRemoveMember = async (userId: string, name: string) => {
     if (
-      !confirm(`Remove ${userId} from this receipt?`)
+      !confirm(`Remove ${name} from this receipt?`)
     )
       return;
 
@@ -160,6 +224,28 @@ export default function ReceiptEditPage({
       return;
     }
 
+    // Build items with splits
+    const itemsWithSplits = items.map((item, idx) => ({
+      ...item,
+      splits: receipt.participants
+        ?.filter((p) => {
+          const key = `${idx}-${p.user_id}`;
+          return itemSplits[key];
+        })
+        .map((p) => p.user_id) || [],
+    }));
+
+    // Build charges with splits
+    const chargesWithSplits = charges.map((charge, idx) => ({
+      ...charge,
+      splits: receipt.participants
+        ?.filter((p) => {
+          const key = `charge-${idx}-${p.user_id}`;
+          return itemSplits[key];
+        })
+        .map((p) => p.user_id) || [],
+    }));
+
     setIsSaving(true);
     try {
       const updateData: ReceiptUpdate = {
@@ -167,9 +253,12 @@ export default function ReceiptEditPage({
         title: title.trim(),
         description: description.trim() || undefined,
         comments: comments.trim() || undefined,
+        folder_id: folderId || undefined,
+        status,
         tax_cents: taxCents,
         tip_cents: tipCents,
-        items,
+        items: itemsWithSplits,
+        charges: chargesWithSplits,
         payments,
       };
 
@@ -191,9 +280,15 @@ export default function ReceiptEditPage({
   };
 
   const calculateSubtotal = () => {
-    return items.reduce((total, item) => {
+    const itemsSubtotal = items.reduce((total, item) => {
       return total + item.unit_price_cents * item.quantity;
     }, 0);
+    
+    const chargesSubtotal = charges.reduce((total, charge) => {
+      return total + charge.unit_price_cents;
+    }, 0);
+
+    return itemsSubtotal + chargesSubtotal;
   };
 
   const subtotal = calculateSubtotal();
@@ -291,6 +386,40 @@ export default function ReceiptEditPage({
             <Card className="p-6">
               <h2 className="text-lg font-semibold mb-4">Receipt Details</h2>
               <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="folder">Folder</Label>
+                    <select
+                      id="folder"
+                      value={folderId || ""}
+                      onChange={(e) => setFolderId(e.target.value || null)}
+                      className="w-full px-3 py-2 mt-1 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                      disabled={isSaving}
+                    >
+                      <option value="">No Folder</option>
+                      {folders.map((folder) => (
+                        <option key={folder.id} value={folder.id}>
+                          {folder.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="status">Status</Label>
+                    <select
+                      id="status"
+                      value={status}
+                      onChange={(e) => setStatus(e.target.value as "draft" | "finalized")}
+                      className="w-full px-3 py-2 mt-1 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                      disabled={isSaving}
+                    >
+                      <option value="draft">Draft</option>
+                      <option value="finalized">Finalized</option>
+                    </select>
+                  </div>
+                </div>
+
                 <div>
                   <Label htmlFor="title">Title *</Label>
                   <Input
@@ -335,28 +464,64 @@ export default function ReceiptEditPage({
               {items.length > 0 && (
                 <div className="mb-4 space-y-2 max-h-75 overflow-y-auto">
                   {items.map((item, idx) => (
-                    <div
-                      key={idx}
-                      className="flex items-center justify-between p-3 bg-slate-50 rounded-lg"
-                    >
-                      <div className="flex-1">
-                        <p className="font-medium">{item.name}</p>
-                        <p className="text-sm text-slate-500">
-                          {item.quantity} × {formatCurrency(item.unit_price_cents)}
-                        </p>
+                    <div key={idx} className="p-3 bg-slate-50 rounded-lg space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <p className="font-medium">{item.name}</p>
+                          <p className="text-sm text-slate-500">
+                            {item.quantity} × {formatCurrency(item.unit_price_cents)} {item.taxable && "• Taxable"}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="font-semibold">
+                            {formatCurrency(item.unit_price_cents * item.quantity)}
+                          </span>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => setEditingSplitsIdx(editingSplitsIdx === idx ? null : idx)}
+                              className="px-2 py-1 text-xs bg-indigo-100 text-indigo-700 rounded hover:bg-indigo-200"
+                              disabled={isSaving}
+                              title="Edit splits"
+                            >
+                              {getItemSplitCount(idx)} paid by
+                            </button>
+                            <button
+                              onClick={() => handleRemoveItem(idx)}
+                              className="p-2 hover:bg-red-100 text-red-600 rounded"
+                              disabled={isSaving}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-3">
-                        <span className="font-semibold">
-                          {formatCurrency(item.unit_price_cents * item.quantity)}
-                        </span>
-                        <button
-                          onClick={() => handleRemoveItem(idx)}
-                          className="p-2 hover:bg-red-100 text-red-600 rounded"
-                          disabled={isSaving}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
+
+                      {/* Splits Editor */}
+                      {editingSplitsIdx === idx && (
+                        <div className="mt-3 pt-3 border-t border-slate-200 space-y-2">
+                          <p className="text-xs font-semibold text-slate-600">Who should pay for this item?</p>
+                          <div className="flex flex-wrap gap-2">
+                            {receipt?.participants?.map((p) => {
+                              const key = `${idx}-${p.user_id}`;
+                              const isSelected = itemSplits[key];
+                              return (
+                                <button
+                                  key={p.user_id}
+                                  onClick={() => toggleItemSplit(idx, p.user_id)}
+                                  className={`px-2 py-1 text-xs rounded transition-colors ${
+                                    isSelected
+                                      ? "bg-indigo-500 text-white"
+                                      : "bg-white border border-slate-300 text-slate-600 hover:border-indigo-500"
+                                  }`}
+                                  disabled={isSaving}
+                                >
+                                  {p.name}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -397,21 +562,42 @@ export default function ReceiptEditPage({
                       />
                     </div>
                   </div>
-                  <div>
-                    <Label htmlFor="item-qty">Quantity</Label>
-                    <Input
-                      id="item-qty"
-                      type="number"
-                      min="1"
-                      value={newItem.quantity}
-                      onChange={(e) =>
-                        setNewItem({
-                          ...newItem,
-                          quantity: parseInt(e.target.value) || 1,
-                        })
-                      }
-                      disabled={isSaving}
-                    />
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label htmlFor="item-qty">Quantity</Label>
+                      <Input
+                        id="item-qty"
+                        type="number"
+                        min="1"
+                        value={newItem.quantity}
+                        onChange={(e) =>
+                          setNewItem({
+                            ...newItem,
+                            quantity: parseInt(e.target.value) || 1,
+                          })
+                        }
+                        disabled={isSaving}
+                      />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2 mt-6">
+                        <input
+                          type="checkbox"
+                          id="item-taxable"
+                          checked={newItem.taxable}
+                          onChange={(e) =>
+                            setNewItem({
+                              ...newItem,
+                              taxable: e.target.checked,
+                            })
+                          }
+                          disabled={isSaving}
+                        />
+                        <Label htmlFor="item-taxable" className="cursor-pointer">
+                          Taxable
+                        </Label>
+                      </div>
+                    </div>
                   </div>
                   <div className="flex gap-2">
                     <Button
@@ -443,7 +629,160 @@ export default function ReceiptEditPage({
               )}
             </Card>
 
-            {/* Totals */}
+            {/* Charges */}
+            <Card className="p-6">
+              <h2 className="text-lg font-semibold mb-4">Additional Charges</h2>
+
+              {charges.length > 0 && (
+                <div className="mb-4 space-y-2 max-h-75 overflow-y-auto">
+                  {charges.map((charge, idx) => (
+                    <div key={idx} className="p-3 bg-slate-50 rounded-lg space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <p className="font-medium">{charge.name}</p>
+                          <p className="text-sm text-slate-500">
+                            {charge.taxable && "Taxable •"} Fee
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="font-semibold">
+                            {formatCurrency(charge.unit_price_cents)}
+                          </span>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => setEditingSplitsIdx(editingSplitsIdx === `charge-${idx}` ? null : `charge-${idx}`)}
+                              className="px-2 py-1 text-xs bg-indigo-100 text-indigo-700 rounded hover:bg-indigo-200"
+                              disabled={isSaving}
+                              title="Edit splits"
+                            >
+                              {receipt?.participants?.filter((p) => {
+                                const key = `charge-${idx}-${p.user_id}`;
+                                return itemSplits[key];
+                              }).length || "Unassigned"} paid by
+                            </button>
+                            <button
+                              onClick={() => handleRemoveCharge(idx)}
+                              className="p-2 hover:bg-red-100 text-red-600 rounded"
+                              disabled={isSaving}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Splits Editor */}
+                      {editingSplitsIdx === `charge-${idx}` && (
+                        <div className="mt-3 pt-3 border-t border-slate-200 space-y-2">
+                          <p className="text-xs font-semibold text-slate-600">Who should pay for this charge?</p>
+                          <div className="flex flex-wrap gap-2">
+                            {receipt?.participants?.map((p) => {
+                              const key = `charge-${idx}-${p.user_id}`;
+                              const isSelected = itemSplits[key];
+                              return (
+                                <button
+                                  key={p.user_id}
+                                  onClick={() => toggleChargeSplit(idx, p.user_id)}
+                                  className={`px-2 py-1 text-xs rounded transition-colors ${
+                                    isSelected
+                                      ? "bg-indigo-500 text-white"
+                                      : "bg-white border border-slate-300 text-slate-600 hover:border-indigo-500"
+                                  }`}
+                                  disabled={isSaving}
+                                >
+                                  {p.name}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {showAddCharge ? (
+                <div className="space-y-3 p-4 bg-slate-50 rounded-lg">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label htmlFor="charge-name">Charge Name *</Label>
+                      <Input
+                        id="charge-name"
+                        value={newCharge.name}
+                        onChange={(e) =>
+                          setNewCharge({ ...newCharge, name: e.target.value })
+                        }
+                        placeholder="e.g., Delivery Fee"
+                        disabled={isSaving}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="charge-price">Amount ($) *</Label>
+                      <Input
+                        id="charge-price"
+                        type="number"
+                        step="0.01"
+                        value={(newCharge.unit_price_cents / 100).toFixed(2)}
+                        onChange={(e) =>
+                          setNewCharge({
+                            ...newCharge,
+                            unit_price_cents: Math.round(
+                              parseFloat(e.target.value) * 100
+                            ),
+                          })
+                        }
+                        placeholder="0.00"
+                        disabled={isSaving}
+                      />
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="charge-taxable"
+                      checked={newCharge.taxable}
+                      onChange={(e) =>
+                        setNewCharge({
+                          ...newCharge,
+                          taxable: e.target.checked,
+                        })
+                      }
+                      disabled={isSaving}
+                    />
+                    <Label htmlFor="charge-taxable" className="cursor-pointer">
+                      Taxable
+                    </Label>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      onClick={handleAddCharge}
+                      disabled={isSaving}
+                    >
+                      Add Charge
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setShowAddCharge(false)}
+                      disabled={isSaving}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <Button
+                  variant="outline"
+                  onClick={() => setShowAddCharge(true)}
+                  disabled={isSaving}
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Charge
+                </Button>
+              )}
+            </Card>
             <Card className="p-6 bg-slate-50">
               <h2 className="text-lg font-semibold mb-4">Totals</h2>
               <div className="space-y-3">
@@ -516,16 +855,22 @@ export default function ReceiptEditPage({
                     >
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 bg-linear-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-white font-semibold text-xs">
-                          {p.user_id.charAt(0).toUpperCase()}
+                          {p.name
+                          .trim()
+                          .split(/\s+/)
+                          .slice(0, 2)
+                          .map(word => word[0])
+                          .join("")
+                          .toUpperCase()}
                         </div>
                         <div>
-                          <p className="font-medium text-sm">{p.user_id}</p>
+                          <p className="font-medium text-sm">{p.name}</p>
                           <p className="text-xs text-slate-500">{p.role}</p>
                         </div>
                       </div>
                       {p.role !== "owner" && (
                         <button
-                          onClick={() => handleRemoveMember(p.user_id)}
+                          onClick={() => handleRemoveMember(p.user_id, p.name)}
                           className="p-2 hover:bg-red-100 text-red-600 rounded"
                           disabled={isSaving}
                         >
