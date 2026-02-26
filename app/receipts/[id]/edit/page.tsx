@@ -1,5 +1,6 @@
 "use client";
 
+import axios from "axios";
 import { useState, useEffect } from "react";
 import { use } from "react";
 import { useRouter } from "next/navigation";
@@ -90,6 +91,10 @@ export default function ReceiptEditPage({
   const [parsedItems, setParsedItems] = useState<ItemInput[]>([]);
   const [importError, setImportError] = useState("");
   const [importSuccess, setImportSuccess] = useState(false);
+  const [paymentInputs, setPaymentInputs] = useState<
+    { user_id: string; amount: string }[]
+  >([{ user_id: "", amount: "0.00" }]);
+
 
   useEffect(() => {
     loadData();
@@ -116,6 +121,28 @@ export default function ReceiptEditPage({
       setItems(receiptData.items || []);
       setCharges(receiptData.charges || []);
       setPayments(receiptData.payments || []);
+
+      // Pre-load split checkboxes for items and charges
+      const splits: { [key: string]: boolean } = {};
+      if (receiptData.items && receiptData.participants) {
+        receiptData.items.forEach((item, idx) => {
+          if (item.splits && Array.isArray(item.splits)) {
+            item.splits.forEach((split) => {
+              splits[`${idx}-${split.user_id}`] = true;
+            });
+          }
+        });
+      }
+      if (receiptData.charges && receiptData.participants) {
+        receiptData.charges.forEach((charge, idx) => {
+          if (charge.splits && Array.isArray(charge.splits)) {
+            charge.splits.forEach((split) => {
+              splits[`charge-${idx}-${split.user_id}`] = true;
+            });
+          }
+        });
+      }
+      setItemSplits(splits);
     } catch (err) {
       console.error("Failed to load receipt:", err);
     } finally {
@@ -136,10 +163,42 @@ export default function ReceiptEditPage({
     setItems([...items, newItem]);
     setNewItem({ name: "", unit_price_cents: 0, quantity: 1, taxable: true, splits: [] });
     setShowAddItem(false);
+    handleAutoSaveItems([...items, newItem]);
   };
 
   const handleRemoveItem = (idx: number) => {
     setItems(items.filter((_, i) => i !== idx));
+    handleAutoSaveItems(items.filter((_, i) => i !== idx));
+  };
+
+    // Finalize receipt
+  const finalizeReceipt = async () => {
+    if (!receipt) return;
+    setIsSaving(true);
+    try {
+      // You may want to get the token from your auth context or localStorage
+      const token = localStorage.getItem("access_token");
+      await axios.post(
+        `/receipts/${receipt.id}/finalize`,
+        {},
+        {
+          baseURL: process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000",
+          headers: {
+            Accept: "application/json",
+            Authorization: token ? `Bearer ${token}` : undefined,
+          },
+        }
+      );
+      // Optionally reload receipt data
+      await loadData();
+      setShowSaved(true);
+      setTimeout(() => setShowSaved(false), 2000);
+    } catch (err) {
+      alert("Failed to finalize receipt.");
+      console.error(err);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleAddCharge = () => {
@@ -161,13 +220,39 @@ export default function ReceiptEditPage({
     setCharges(charges.filter((_, i) => i !== idx));
   };
 
+  // const toggleItemSplit = (itemIdx: number, userId: string) => {
+  //   const key = `${itemIdx}-${userId}`;
+  //   setItemSplits((prev) => ({
+  //     ...prev,
+  //     [key]: !prev[key],
+  //   }));
+  // };
+
   const toggleItemSplit = (itemIdx: number, userId: string) => {
     const key = `${itemIdx}-${userId}`;
-    setItemSplits((prev) => ({
-      ...prev,
-      [key]: !prev[key],
-    }));
+    let next = {
+      ...itemSplits,
+      [key]: !itemSplits[key],
+    };
+
+    setItemSplits(next);
+
+    // handleAutoSaveItemSplits(items, next); // pass concrete state
   };
+
+  //   const toggleChargeSplit = (chargeIdx: number, userId: string) => {
+  //   const key = `charge-${chargeIdx}-${userId}`;
+
+  //   setItemSplits(prev => {
+  //     const next = {
+  //       ...prev,
+  //       [key]: !prev[key],
+  //     };
+
+  //     handleAutoSaveItems(next); // use updated state
+  //     return next;
+  //   });
+  // };
 
   const toggleChargeSplit = (chargeIdx: number, userId: string) => {
     const key = `charge-${chargeIdx}-${userId}`;
@@ -276,13 +361,15 @@ export default function ReceiptEditPage({
     }
   };
 
+
+
   const handleAddBulkItems = () => {
     setItems([...items, ...parsedItems]);
     setCsvInput("");
     setParsedItems([]);
     setImportSuccess(false);
     setShowBulkImport(false);
-    handleAutoSave();
+    handleAutoSaveItems([...items, ...parsedItems]);
   };
 
   const resetBulkImport = () => {
@@ -334,7 +421,214 @@ export default function ReceiptEditPage({
     }
   };
 
-  const handleAutoSave = async () => {
+
+  // const handleAutoSaveItemSplits = async (items: ItemInput[], itemSplits: any) => {
+  //   if (!receipt) return;
+
+  //   if (!title.trim()) {
+  //     alert("Receipt title is required");
+  //     return;
+  //   }
+
+  //   console.log(345, itemSplits)
+  //   console.log(346, items)
+
+  //   // Build items with splits - share_quantity is the ratio of qty divided by number of splits
+  //   const itemsWithSplits = items.map((item, idx) => {
+  //     const selectedParticipants = receipt.participants?.filter((p) => {
+  //       const key = `${idx}-${p.user_id}`;
+  //       return itemSplits[key];
+  //     }) || [];
+
+  //     const splitCount = selectedParticipants.length;
+  //     const shareQty = splitCount > 0 ? item.quantity / splitCount : item.quantity;
+
+  //     return {
+  //       ...item,
+  //       splits: selectedParticipants.map((p) => ({
+  //         user_id: p.user_id,
+  //         share_quantity: shareQty,
+  //       })),
+  //     };
+  //   });
+
+  //   console.log("364", itemsWithSplits)
+
+
+  //   // Build charges with splits
+  //   const chargesWithSplits = charges.map((charge, idx) => {
+  //     const selectedParticipants = receipt.participants?.filter((p) => {
+  //       const key = `charge-${idx}-${p.user_id}`;
+  //       return itemSplits[key];
+  //     }) || [];
+
+  //     return {
+  //       ...charge,
+  //       splits: selectedParticipants.map((p) => ({
+  //         user_id: p.user_id,
+  //         share_quantity: 1,
+  //       })),
+  //     };
+  //   });
+
+  //   console.log("380", chargesWithSplits)
+
+
+  //   setIsSaving(true);
+  //   try {
+  //     const updateData: ReceiptUpdate = {
+  //       version: receipt.version,
+  //       // title: title.trim(),
+  //       // description: description.trim() || undefined,
+  //       // comments: comments.trim() || undefined,
+  //       // folder_id: folderId || undefined,
+  //       // status,
+  //       // tax_cents: taxCents,
+  //       // tip_cents: tipCents,
+  //       items: itemsWithSplits,
+  //       // charges: chargesWithSplits,
+  //       // payments,
+  //     };
+
+  //     console.log("396", updateData)
+
+  //     await updateReceipt(id, updateData);
+  //     setShowSaved(true);
+  //     setTimeout(() => setShowSaved(false), 2000);
+  //     // router.push(`/receipts/${id}`);
+  //   } catch (err: any) {
+  //     console.error("Failed to save receipt:", err);
+  //     alert(
+  //       err.message ||
+  //       "Failed to save receipt. Please try again."
+  //     );
+  //   } finally {
+  //     setIsSaving(false);
+  //   }
+  // };
+
+
+  const getEnteredTotalCents = () => {
+    return paymentInputs.reduce((sum, p) => {
+      const value = parseFloat(p.amount);
+      if (isNaN(value)) return sum;
+      return sum + Math.round(value * 100);
+    }, 0);
+  };
+
+  const handleAutoSaveItems = async (items: ItemInput[]) => {
+    if (!receipt) return;
+
+    if (!title.trim()) {
+      alert("Receipt title is required");
+      return;
+    }
+
+    // Build items with splits - share_quantity is the ratio of qty divided by number of splits
+    const itemsWithSplits = items.map((item, idx) => {
+      const selectedParticipants = receipt.participants?.filter((p) => {
+        const key = `${idx}-${p.user_id}`;
+        return itemSplits[key];
+      }) || [];
+
+      const splitCount = selectedParticipants.length;
+      const shareQty = splitCount > 0 ? item.quantity / splitCount : item.quantity;
+
+      return {
+        ...item,
+        splits: selectedParticipants.map((p) => ({
+          user_id: p.user_id,
+          share_quantity: shareQty,
+        })),
+      };
+    });
+
+    // Build charges with splits
+    const chargesWithSplits = charges.map((charge, idx) => {
+      const selectedParticipants = receipt.participants?.filter((p) => {
+        const key = `charge-${idx}-${p.user_id}`;
+        return itemSplits[key];
+      }) || [];
+
+      return {
+        ...charge,
+        splits: selectedParticipants.map((p) => ({
+          user_id: p.user_id,
+          share_quantity: 1,
+        })),
+      };
+    });
+
+    setIsSaving(true);
+    try {
+      const updateData: ReceiptUpdate = {
+        version: receipt.version,
+        title: title.trim(),
+        description: description.trim() || undefined,
+        comments: comments.trim() || undefined,
+        folder_id: folderId || undefined,
+        status,
+        tax_cents: taxCents,
+        tip_cents: tipCents,
+        items: itemsWithSplits,
+        charges: chargesWithSplits,
+        payments,
+      };
+
+      console.log("396", updateData)
+
+      await updateReceipt(id, updateData);
+      setShowSaved(true);
+      setTimeout(() => setShowSaved(false), 2000);
+      // router.push(`/receipts/${id}`);
+    } catch (err: any) {
+      console.error("Failed to save receipt:", err);
+      alert(
+        err.message ||
+        "Failed to save receipt. Please try again."
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+
+    const handleAutoSavePayments = async (payments:PaymentInput[]) => {
+    if (!receipt) return;
+
+    if (!title.trim()) {
+      alert("Receipt title is required");
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const updateData: ReceiptUpdate = {
+        version: receipt.version,
+        payments,
+      };
+
+      console.log("396", updateData)
+
+      await updateReceipt(id, updateData);
+      setShowSaved(true);
+      setTimeout(() => setShowSaved(false), 2000);
+      // router.push(`/receipts/${id}`);
+    } catch (err: any) {
+      console.error("Failed to save receipt:", err);
+      alert(
+        err.message ||
+        "Failed to save receipt. Please try again."
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+
+
+
+  const handleSave = async () => {
     if (!receipt) return;
 
     if (!title.trim()) {
@@ -408,81 +702,6 @@ export default function ReceiptEditPage({
     }
   };
 
-
-  const handleSave = async () => {
-    if (!receipt) return;
-
-    if (!title.trim()) {
-      alert("Receipt title is required");
-      return;
-    }
-
-    // Build items with splits - share_quantity is the ratio of qty divided by number of splits
-    const itemsWithSplits = items.map((item, idx) => {
-      const selectedParticipants = receipt.participants?.filter((p) => {
-        const key = `${idx}-${p.user_id}`;
-        return itemSplits[key];
-      }) || [];
-
-      const splitCount = selectedParticipants.length;
-      const shareQty = splitCount > 0 ? item.quantity / splitCount : item.quantity;
-
-      return {
-        ...item,
-        splits: selectedParticipants.map((p) => ({
-          user_id: p.user_id,
-          share_quantity: shareQty,
-        })),
-      };
-    });
-
-    // Build charges with splits
-    const chargesWithSplits = charges.map((charge, idx) => {
-      const selectedParticipants = receipt.participants?.filter((p) => {
-        const key = `charge-${idx}-${p.user_id}`;
-        return itemSplits[key];
-      }) || [];
-
-      return {
-        ...charge,
-        splits: selectedParticipants.map((p) => ({
-          user_id: p.user_id,
-          share_quantity: 1,
-        })),
-      };
-    });
-
-    setIsSaving(true);
-    try {
-      const updateData: ReceiptUpdate = {
-        version: receipt.version,
-        title: title.trim(),
-        description: description.trim() || undefined,
-        comments: comments.trim() || undefined,
-        folder_id: folderId || undefined,
-        status,
-        tax_cents: taxCents,
-        tip_cents: tipCents,
-        items: itemsWithSplits,
-        charges: chargesWithSplits,
-        payments,
-      };
-
-      await updateReceipt(id, updateData);
-      setShowSaved(true);
-      setTimeout(() => setShowSaved(false), 2000);
-      router.push(`/receipts/${id}`);
-    } catch (err: any) {
-      console.error("Failed to save receipt:", err);
-      alert(
-        err.message ||
-        "Failed to save receipt. Please try again."
-      );
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
   const formatCurrency = (cents: number) => {
     return `$${(cents / 100).toFixed(2)}`;
   };
@@ -504,6 +723,7 @@ export default function ReceiptEditPage({
   // Calculate totals
   const subtotal = calculateSubtotal();
   const total = subtotal + taxCents + tipCents;
+  
 
   // Calculate settlement summary (who owes what)
   const calculateSettlement = () => {
@@ -607,6 +827,92 @@ export default function ReceiptEditPage({
 
   const receiptCounts = {};
 
+  const updatePaymentField = (
+    index: number,
+    field: "user_id" | "amount",
+    value: string
+  ) => {
+    setPaymentInputs(prev => {
+      const next = [...prev];
+      next[index] = { ...next[index], [field]: value };
+      return next;
+    });
+  };
+
+    const handleRemovePaymentRow = (index: number) => {
+    setPaymentInputs(prev => {
+      if (prev.length === 1) return prev; // keep at least one row
+      return prev.filter((_, i) => i !== index);
+    });
+  };
+
+  const handleAddPaymentRow = () => {
+    const lastRow = paymentInputs[paymentInputs.length - 1];
+
+    if (!lastRow.user_id || !lastRow.amount || parseFloat(lastRow.amount) <= 0) {
+      alert("Complete the previous payment row before adding another.");
+      return;
+    }
+
+    const enteredCents = getEnteredTotalCents();
+    const remainingCents = total - enteredCents;
+
+    if (remainingCents <= 0) {
+      alert("Total amount already fully allocated.");
+      return;
+    }
+
+    console.log(enteredCents, total)
+
+    if (enteredCents > total) {
+      alert("Payments exceed total bill amount.");
+      return;
+    }
+
+    setPaymentInputs(prev => [
+      ...prev,
+      {
+        user_id: "",
+        amount: (remainingCents / 100).toFixed(2),
+      },
+    ]);
+  };
+
+  const getEnteredTotal = () => {
+    return paymentInputs.reduce((sum, p) => {
+      const value = parseFloat(p.amount);
+      return sum + (isNaN(value) ? 0 : value);
+    }, 0);
+  };
+
+  const handleAddPayments = () => {
+    // Check incomplete rows
+    const hasIncomplete = paymentInputs.some(
+      p => !p.user_id || !p.amount || parseFloat(p.amount) <= 0
+    );
+
+    if (hasIncomplete) {
+      alert("All payment rows must be completed.");
+      return;
+    }
+
+    const enteredTotal = Number(getEnteredTotal() * 100).toFixed(0);
+
+    console.log(enteredTotal,  total)
+
+    if (enteredTotal > total) {
+      alert("Payments exceed total bill amount.");
+      return;
+    }
+
+    console.log("Valid Payments:", paymentInputs);
+
+    setPaymentInputs(paymentInputs);
+
+    const paymentInputsInCents = paymentInputs.map(p => {return {...p, "amount_paid_cents": Number(p.amount * 100).toFixed(0)}})
+    handleAutoSavePayments(paymentInputsInCents);
+  };
+
   return (
     <SidebarProvider>
       <DashboardSidebar
@@ -634,8 +940,8 @@ export default function ReceiptEditPage({
 
                   <Breadcrumb items={breadcrumbItems} />
                 </div>
-                <div className="flex items-center gap-2 min-h-[32px]">
-                  {!showSaved && (
+                <div className="flex items-center gap-2 min-h-8">
+                  {showSaved && (
                     <span className="flex items-center text-green-700 font-semibold animate-fade-in mr-1">
                       <CloudCheck className="w-4 h-4 mr-1" /> Saved!
                     </span>
@@ -656,6 +962,15 @@ export default function ReceiptEditPage({
                   >
                     {isSaving ? "Saving..." : isFinalized ? "Locked" : "Save Changes"}
                   </Button>
+                  {!isFinalized && (
+                    <Button
+                      onClick={finalizeReceipt}
+                      disabled={isSaving}
+                      variant="destructive"
+                    >
+                      Finalize Receipt
+                    </Button>
+                  )}
                 </div>
               </div>
             </div>
@@ -665,7 +980,7 @@ export default function ReceiptEditPage({
           {isFinalized && (
             <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-6">
               <p className="text-sm font-semibold text-yellow-800">
-                ⚠️ Receipt is finalized. Editing is locked.
+                Receipt is finalized. Editing is locked.
               </p>
             </div>
           )}
@@ -862,6 +1177,131 @@ export default function ReceiptEditPage({
                   </div>
                 )}
 
+                {showAddItem ? (
+                  <div className="space-y-3 p-4 bg-slate-50 rounded-lg">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label htmlFor="item-name">Item Name *</Label>
+                        <Input
+                          id="item-name"
+                          value={newItem.name}
+                          onChange={(e) =>
+                            setNewItem({ ...newItem, name: e.target.value })
+                          }
+                          placeholder="e.g., Coffee"
+                          disabled={isSaving}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="item-price">Unit Price ($) *</Label>
+                        <Input
+                          id="item-price"
+                          type="number"
+                          step="0.01"
+                          value={(newItem.unit_price_cents / 100).toFixed(2)}
+                          onChange={(e) =>
+                            setNewItem({
+                              ...newItem,
+                              unit_price_cents: Math.round(
+                                parseFloat(e.target.value) * 100
+                              ),
+                            })
+                          }
+                          placeholder="0.00"
+                          disabled={isSaving}
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label htmlFor="item-qty">Quantity</Label>
+                        <Input
+                          id="item-qty"
+                          type="number"
+                          min="1"
+                          value={newItem.quantity}
+                          onChange={(e) =>
+                            setNewItem({
+                              ...newItem,
+                              quantity: parseInt(e.target.value) || 1,
+                            })
+                          }
+                          disabled={isSaving}
+                        />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2 mt-6">
+                          <input
+                            type="checkbox"
+                            id="item-taxable"
+                            checked={newItem.taxable}
+                            onChange={(e) =>
+                              setNewItem({
+                                ...newItem,
+                                taxable: e.target.checked,
+                              })
+                            }
+                            disabled={isSaving}
+                          />
+                          <Label htmlFor="item-taxable" className="cursor-pointer">
+                            Taxable
+                          </Label>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex gap-2 text-white">
+                      <Button
+                        size="sm"
+                        onClick={handleAddItem}
+                        disabled={isSaving}
+                      >
+                        Add Item
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setShowAddItem(false)}
+                        disabled={isSaving}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex gap-2">
+                    {/* <Button
+                    variant="outline"
+                    onClick={() => setShowAddItem(true)}
+                    disabled={isSaving}
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add Item
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowBulkImport(!showBulkImport)}
+                    disabled={isSaving}
+                  >
+                    <Upload className="w-4 h-4 mr-2" />
+                    Bulk Import CSV/TSV
+                  </Button> */}
+                    <></>
+                  </div>
+                )}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 {/* Bulk Import Section */}
                 {showBulkImport && (
                   <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg space-y-3">
@@ -1042,7 +1482,7 @@ export default function ReceiptEditPage({
                   </div>
                 )}
 
-                {!showAddCharge && !isFinalized && (
+                {/* {!showAddCharge && !isFinalized && (
                   <div className="flex gap-2">
                     <Button
                       variant="outline"
@@ -1053,7 +1493,7 @@ export default function ReceiptEditPage({
                       Add Charge
                     </Button>
                   </div>
-                )}
+                )} */}
 
                 {showAddCharge ? (
                   <div className="space-y-3 p-4 bg-slate-50 rounded-lg">
@@ -1107,7 +1547,7 @@ export default function ReceiptEditPage({
                         Taxable
                       </Label>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 white">
                       <Button
                         size="sm"
                         onClick={handleAddCharge}
@@ -1150,7 +1590,7 @@ export default function ReceiptEditPage({
                     <span className="font-medium">{formatCurrency(subtotal)}</span>
                   </div>
 
-                  <div className="flex justify-between items-center">
+                  {/* <div className="flex justify-between items-center">
                     <span className="text-slate-600">Tax</span>
                     <div className="flex items-center gap-2">
                       <span>$</span>
@@ -1182,7 +1622,7 @@ export default function ReceiptEditPage({
                         disabled={isSaving || isFinalized}
                       />
                     </div>
-                  </div>
+                  </div> */}
 
                   <div className="border-t border-slate-300 pt-3 flex justify-between">
                     <span className="font-bold">Total</span>
@@ -1225,10 +1665,9 @@ export default function ReceiptEditPage({
               </Card>
 
               {/* Payments Card */}
-              <Card className="p-6">
+              {/* <Card className="p-6">
                 <h3 className="font-semibold text-lg mb-4 text-slate-900">Payments</h3>
                 <div className="space-y-3">
-                  {/* Add Payment Form */}
                   <div className="space-y-2 p-3 bg-slate-50 rounded-lg">
                     <div className="text-xs font-semibold text-slate-700 mb-2">Record Payment</div>
                     <select
@@ -1255,13 +1694,13 @@ export default function ReceiptEditPage({
                         size="sm"
                         className="text-xs px-2"
                         disabled={isSaving || isFinalized}
+                        onClick={() => }
                       >
                         Add
                       </Button>
                     </div>
                   </div>
 
-                  {/* Payment List */}
                   {payments && payments.length > 0 ? (
                     <div className="space-y-1 max-h-32 overflow-y-auto">
                       {payments.map((payment, idx) => {
@@ -1281,6 +1720,115 @@ export default function ReceiptEditPage({
                     </div>
                   ) : (
                     <p className="text-xs text-slate-500 text-center py-2">No payments recorded yet</p>
+                  )}
+                </div>
+              </Card> */}
+
+              {/* Payments Card */}
+              <Card className="p-6">
+                <h3 className="font-semibold text-lg mb-4 text-slate-900">
+                  Payments
+                </h3>
+
+                <div className="space-y-3">
+                  {/* Add Payment Form */}
+                  <div className="space-y-2 p-3 bg-slate-50 rounded-lg">
+                    <div className="text-xs font-semibold text-slate-700 mb-2">
+                      Record Payment
+                    </div>
+
+                    {paymentInputs?.map((payment, idx) => (
+                      <div key={idx} className="flex items-center gap-2">
+                        {/* Left: Participant */}
+                        <select
+                          value={payment.user_id}
+                          onChange={(e) =>
+                            updatePaymentField(idx, "user_id", e.target.value)
+                          }
+                          className="flex-1 px-2 py-1 border border-slate-300 rounded text-xs"
+                          disabled={isSaving || isFinalized}
+                        >
+                          <option value="">Select payer...</option>
+                          {receipt?.participants?.map((p) => (
+                            <option key={p.user_id} value={p.user_id}>
+                              {p.name}
+                            </option>
+                          ))}
+                        </select>
+
+                        {/* Amount */}
+                        <input
+                          type="number"
+                          step="0.01"
+                          placeholder="Amount"
+                          value={payment.amount}
+                          onChange={(e) =>
+                            updatePaymentField(idx, "amount", e.target.value)
+                          }
+                          className="w-28 text-right px-2 py-1 border border-slate-300 rounded text-xs"
+                          disabled={isSaving || isFinalized}
+                        />
+
+                        {/* Remove Button */}
+                        <button
+                          type="button"
+                          onClick={() => handleRemovePaymentRow(idx)}
+                          disabled={isSaving || isFinalized || paymentInputs.length === 1}
+                          className="px-2 py-1 text-xs text-red-600 hover:bg-red-100 rounded"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))}
+
+                    <div className="flex gap-2 pt-2">
+                      <Button
+                        size="sm"
+                        disabled={isSaving || isFinalized}
+                        onClick={handleAddPaymentRow}
+                      >
+                        Add Row
+                      </Button>
+
+                      <Button
+                        size="sm"
+                        disabled={isSaving || isFinalized}
+                        onClick={handleAddPayments}
+                      >
+                        Save Payments
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Payment List */}
+                  {payments && payments.length > 0 ? (
+                    <div className="space-y-1 max-h-32 overflow-y-auto">
+                      {payments.map((payment, idx) => {
+                        const payer = receipt?.participants?.find(
+                          (p) => p.user_id === payment.user_id
+                        );
+                        return (
+                          <div
+                            key={idx}
+                            className="flex justify-between items-center p-2 bg-white border border-slate-200 rounded text-xs"
+                          >
+                            <span>
+                              <span className="font-medium">
+                                {payer?.name || "Unknown"}
+                              </span>
+                              <span className="text-slate-500"> paid </span>
+                            </span>
+                            <span className="font-semibold text-green-600">
+                              {formatCurrency(payment.amount_paid_cents)}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-slate-500 text-center py-2">
+                      No payments recorded yet
+                    </p>
                   )}
                 </div>
               </Card>

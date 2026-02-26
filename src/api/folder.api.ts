@@ -12,10 +12,18 @@ export const createFolder = async (data: FolderCreate): Promise<Folder> => {
 /* --------------------------
    List (owner-scoped)
 -------------------------- */
-export const listFolders = async (): Promise<Folder[]> => {
-  const response = await api.get<Folder[]>("/folders");
+export const listFolders = async (
+  includeCounts: boolean = false
+): Promise<Folder[]> => {
+  const response = await api.get<Folder[]>("/folders", {
+    params: {
+      include_counts: includeCounts,
+    },
+  });
+
   return response.data;
 };
+
 
 /* --------------------------
    Get single

@@ -47,6 +47,7 @@ export default function ReceiptDetailPage({
     }
   };
 
+
   const handleDelete = async () => {
     if (!confirm("Are you sure you want to delete this receipt?")) return;
     try {

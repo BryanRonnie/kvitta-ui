@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Folder } from "@/types/folder";
+import { X } from "lucide-react";
 
 interface CreateReceiptModalProps {
   isOpen: boolean;
