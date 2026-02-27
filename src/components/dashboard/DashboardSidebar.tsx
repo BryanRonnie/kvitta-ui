@@ -15,6 +15,7 @@ import {
     SidebarMenuButton,
     SidebarMenuItem,
 } from "@/components/ui/sidebar";
+import LedgerBalancePanel from "./LedgerBalancePanel";
 
 interface DashboardSidebarProps {
     folders: Folder[];
@@ -60,6 +61,12 @@ export function DashboardSidebar({
                         </SidebarMenuItem>
                     </SidebarMenu>
                 </SidebarGroup>
+
+                <SidebarGroup>
+  <SidebarGroupContent className="group-data-[collapsible=icon]:hidden">
+    <LedgerBalancePanel />
+  </SidebarGroupContent>
+</SidebarGroup>
 
                 {/* Folders */}
                 <SidebarGroup>

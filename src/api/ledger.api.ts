@@ -113,3 +113,83 @@ export const deleteLedgerForReceipt = async (
   );
   return response.data;
 };
+
+
+
+// import { api } from "./axios";
+
+/* --------------------------
+   Types
+-------------------------- */
+
+export interface CounterpartyApi {
+  user_id: string;
+  name: string;
+  they_owe_me_cents: number;
+  i_owe_them_cents: number;
+  net_cents: number;
+}
+
+export interface MeSummaryApi {
+  user_id: string;
+  total_i_owe_cents: number;
+  total_owed_to_me_cents: number;
+  net_cents: number;
+  counterparties: CounterpartyApi[];
+}
+
+// Mapped (camelCase) versions for use in components
+export interface Counterparty {
+  userId: string;
+  name: string;
+  theyOweMeCents: number;
+  iOweThem: number;
+  netCents: number;
+}
+
+export interface MeSummary {
+  userId: string;
+  totalIOweCents: number;
+  totalOwedToMeCents: number;
+  netCents: number;
+  counterparties: Counterparty[];
+}
+
+/* --------------------------
+   Mappers
+-------------------------- */
+
+const mapCounterparty = (c: CounterpartyApi): Counterparty => ({
+  userId: c.user_id,
+  name: c.name,
+  theyOweMeCents: c.they_owe_me_cents,
+  iOweThem: c.i_owe_them_cents,
+  netCents: c.net_cents,
+});
+
+const mapMeSummary = (raw: MeSummaryApi): MeSummary => ({
+  userId: raw.user_id,
+  totalIOweCents: raw.total_i_owe_cents,
+  totalOwedToMeCents: raw.total_owed_to_me_cents,
+  netCents: raw.net_cents,
+  counterparties: raw.counterparties.map(mapCounterparty),
+});
+
+/* --------------------------
+   Get my ledger summary
+   GET /ledger/me
+-------------------------- */
+
+/**
+ * Get the current user's full financial picture across all receipts.
+ *
+ * @returns MeSummary
+ *   - totalIOweCents:      Sum of everything I owe across all counterparties
+ *   - totalOwedToMeCents:  Sum of everything owed to me
+ *   - netCents:            Positive = net creditor, Negative = net debtor
+ *   - counterparties:      Per-person breakdown with individual net amounts
+ */
+export const getMyLedgerSummary = async (): Promise<MeSummary> => {
+  const response = await api.get<MeSummaryApi>("/ledger/me");
+  return mapMeSummary(response.data);
+};
