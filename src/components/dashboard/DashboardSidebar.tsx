@@ -2,7 +2,7 @@
 
 import { useAuth } from "@/contexts/AuthContext";
 import { Folder } from "@/types/folder";
-import { FolderIcon, LayoutGrid, Plus } from "lucide-react";
+import { FolderIcon, LayoutGrid, Plus, LogOut } from "lucide-react";
 import {
     Sidebar,
     SidebarContent,
@@ -15,6 +15,7 @@ import {
     SidebarMenuButton,
     SidebarMenuItem,
 } from "@/components/ui/sidebar";
+import { logout } from "@/api/auth.api";
 import LedgerBalancePanel from "./LedgerBalancePanel";
 
 interface DashboardSidebarProps {
@@ -32,7 +33,17 @@ export function DashboardSidebar({
     onCreateFolder,
     receiptCounts,
 }: DashboardSidebarProps) {
-    const { user } = useAuth();
+    const { user, logout: logoutAuth } = useAuth();
+
+    const handleLogout = async () => {
+        try {
+            await logout(); // Call API logout to notify backend
+            logoutAuth(); // Clear AuthContext state (ProtectedRouteWrapper will redirect)
+        } catch (err) {
+            console.error("Logout failed:", err);
+            logoutAuth(); // Clear state even if API call fails
+        }
+    };
 
     return (
         <Sidebar collapsible="icon">
@@ -128,6 +139,15 @@ export function DashboardSidebar({
                                     {user?.email}
                                 </div>
                             </div>
+                        </SidebarMenuButton>
+                    </SidebarMenuItem>
+                    <SidebarMenuItem>
+                        <SidebarMenuButton
+                            onClick={handleLogout}
+                            className="hover:bg-red-50 text-red-600 hover:text-red-700"
+                        >
+                            <LogOut className="w-5 h-5" />
+                            <span>Logout</span>
                         </SidebarMenuButton>
                     </SidebarMenuItem>
                 </SidebarMenu>

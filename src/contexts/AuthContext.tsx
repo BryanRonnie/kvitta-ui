@@ -91,7 +91,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.removeItem("last_activity");
     localStorage.removeItem("access_token");
     if (sessionTimeout) clearTimeout(sessionTimeout);
-    window.location.href = "/login";
+    // Don't redirect here; let ProtectedRouteWrapper handle it via router.replace()
   }, [sessionTimeout]);
 
   const login = useCallback((userData: UserResponse, rememberMe: boolean) => {

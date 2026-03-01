@@ -48,7 +48,12 @@ export default function DashboardPage() {
       ]);
       setFolders(foldersData.filter((f) => !f.is_deleted));
       setReceipts(receiptsData);
-    } catch (err) {
+    } catch (err: any) {
+      // Handle 401 Unauthorized - token is invalid/expired
+      if (err.response?.status === 401) {
+        clearAuth();
+        return;
+      }
       console.error("Failed to load data:", err);
     } finally {
       setIsLoading(false);

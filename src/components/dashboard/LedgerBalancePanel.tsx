@@ -1,5 +1,6 @@
 import { getMyLedgerSummary, MeSummary } from "@/api/ledger.api";
 import { useEffect, useState } from "react";
+import { useAuth } from "@/contexts/AuthContext";
 
 const fmt = (cents:number) =>
   (cents / 100).toLocaleString("en-CA", { style: "currency", currency: "CAD" });
@@ -97,6 +98,7 @@ function CounterpartyRow({ person, index }: {person: any, index: number}) {
 }
 
 export default function LedgerBalancePanel() {
+  const { clearSession } = useAuth();
   const [expanded, setExpanded] = useState(false);
   const [data, setData] = useState<MeSummary | null>(null);
   const [loading, setLoading] = useState(true);
@@ -104,8 +106,16 @@ export default function LedgerBalancePanel() {
   useEffect(() => {
     getMyLedgerSummary()
       .then(setData)
+      .catch((err: any) => {
+        // Handle 401 Unauthorized - clear session
+        if (err.response?.status === 401) {
+          clearSession();
+        } else {
+          console.error("Failed to load ledger summary:", err);
+        }
+      })
       .finally(() => setLoading(false));
-  }, []);
+  }, [clearSession]);
 
   if (loading) return <div className="p-4 text-sm text-slate-400">Loading...</div>;
   if (!data) return null;

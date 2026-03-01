@@ -26,8 +26,7 @@ api.interceptors.response.use(
     if (error.response?.status === 401) {
       if (typeof window !== "undefined") {
         localStorage.removeItem("access_token");
-        // Optionally redirect to login
-        window.location.href = "/login";
+        // Don't redirect here - let ProtectedRouteWrapper handle it
       }
     }
 

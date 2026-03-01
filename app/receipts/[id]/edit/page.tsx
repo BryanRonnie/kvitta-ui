@@ -4,6 +4,7 @@ import axios from "axios";
 import { useState, useEffect } from "react";
 import { use } from "react";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   ArrowLeft,
   Plus,
@@ -40,6 +41,7 @@ export default function ReceiptEditPage({
 }) {
   const { id } = use(params);
   const router = useRouter();
+  const { clearSession } = useAuth();
   const [receipt, setReceipt] = useState<Receipt | null>(null);
   const [folders, setFolders] = useState<Folder[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -143,7 +145,12 @@ export default function ReceiptEditPage({
         });
       }
       setItemSplits(splits);
-    } catch (err) {
+    } catch (err: any) {
+      // Handle 401 Unauthorized - token is invalid/expired
+      if (err.response?.status === 401) {
+        clearSession();
+        return;
+      }
       console.error("Failed to load receipt:", err);
     } finally {
       setIsLoading(false);

@@ -15,10 +15,14 @@ export function ProtectedRouteWrapper({ children }: { children: React.ReactNode 
     if (isLoading) return;
 
     const isPublicRoute = PUBLIC_ROUTES.includes(pathname);
+    // Check both auth context state AND token existence
+    // Token might be removed by 401 interceptor without auth context updating immediately
+    const hasToken = typeof window !== "undefined" ? !!localStorage.getItem("access_token") : false;
+    const isActuallyAuthenticated = isAuthenticated && hasToken;
 
-    if (!isAuthenticated && !isPublicRoute) {
+    if (!isActuallyAuthenticated && !isPublicRoute) {
       router.replace("/login");
-    } else if (isAuthenticated && isPublicRoute) {
+    } else if (isActuallyAuthenticated && isPublicRoute) {
       router.replace("/dashboard");
     }
   }, [isAuthenticated, isLoading, pathname, router]);
