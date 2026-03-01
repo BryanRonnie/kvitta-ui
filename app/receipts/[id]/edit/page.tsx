@@ -102,6 +102,15 @@ export default function ReceiptEditPage({
     loadData();
   }, [id]);
 
+  // Get receipt counts from folders (already fetched from API)
+  const receiptCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    folders.forEach((folder) => {
+      counts[folder.id] = folder.receipt_count || 0;
+    });
+    return counts;
+  }, [folders]);
+
   const loadData = async () => {
     setIsLoading(true);
     try {
@@ -871,17 +880,6 @@ export default function ReceiptEditPage({
   //     setIsLoading(false);
   //   }
   // };
-
-  // Get receipt counts from folders (already fetched from API)
-  const receiptCounts = useMemo(() => {
-    const counts: Record<string, number> = {};
-    folders.forEach((folder) => {
-      counts[folder.id] = folder.receipt_count || 0;
-    });
-    return counts;
-  }, [folders]);
-
-
 
   const updatePaymentField = (
     index: number,
