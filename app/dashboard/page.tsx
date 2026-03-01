@@ -43,7 +43,7 @@ export default function DashboardPage() {
     setIsLoading(true);
     try {
       const [foldersData, receiptsData] = await Promise.all([
-        listFolders(),
+        listFolders(true), // Include receipt counts from API
         listReceipts(),
       ]);
       setFolders(foldersData.filter((f) => !f.is_deleted));
@@ -60,16 +60,14 @@ export default function DashboardPage() {
     }
   };
 
-  // Calculate receipt counts per folder
+  // Get receipt counts from folders (already fetched from API)
   const receiptCounts = useMemo(() => {
     const counts: Record<string, number> = {};
-    receipts.forEach((receipt) => {
-      if (receipt.folder_id) {
-        counts[receipt.folder_id] = (counts[receipt.folder_id] || 0) + 1;
-      }
+    folders.forEach((folder) => {
+      counts[folder.id] = folder.receipt_count || 0;
     });
     return counts;
-  }, [receipts]);
+  }, [folders]);
 
   // Filter receipts based on selected folder and search
   const filteredReceipts = useMemo(() => {

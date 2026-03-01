@@ -1,7 +1,7 @@
 "use client";
 
 import axios from "axios";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { use } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
@@ -107,7 +107,7 @@ export default function ReceiptEditPage({
     try {
       const [receiptData, foldersData] = await Promise.all([
         getReceipt(id),
-        listFolders(),
+        listFolders(true),
       ]);
       setReceipt(receiptData);
       setFolders(foldersData.filter((f) => !f.is_deleted));
@@ -832,7 +832,56 @@ export default function ReceiptEditPage({
     { label: "Edit" },
   ];
 
-  const receiptCounts = {};
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  // // Load initial data
+  // useEffect(() => {
+  //   loadData();
+  // }, []);
+
+  // const loadData = async () => {
+  //   setIsLoading(true);
+  //   try {
+  //     const [foldersData, receiptsData] = await Promise.all([
+  //       listFolders(true), // Include receipt counts from API
+  //       listReceipts(),
+  //     ]);
+  //     setFolders(foldersData.filter((f) => !f.is_deleted));
+  //     setReceipts(receiptsData);
+  //   } catch (err: any) {
+  //     // Handle 401 Unauthorized - token is invalid/expired
+  //     if (err.response?.status === 401) {
+  //       clearAuth();
+  //       return;
+  //     }
+  //     console.error("Failed to load data:", err);
+  //   } finally {
+  //     setIsLoading(false);
+  //   }
+  // };
+
+  // Get receipt counts from folders (already fetched from API)
+  const receiptCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    folders.forEach((folder) => {
+      counts[folder.id] = folder.receipt_count || 0;
+    });
+    return counts;
+  }, [folders]);
+
+
 
   const updatePaymentField = (
     index: number,

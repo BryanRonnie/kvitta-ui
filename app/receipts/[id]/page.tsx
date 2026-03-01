@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { use } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Edit, Trash2, Users, DollarSign } from "lucide-react";
@@ -36,7 +36,7 @@ export default function ReceiptDetailPage({
     try {
       const [receiptData, foldersData] = await Promise.all([
         getReceipt(id),
-        listFolders(),
+        listFolders(true),
       ]);
       setReceipt(receiptData);
       setFolders(foldersData.filter((f) => !f.is_deleted));
@@ -46,6 +46,14 @@ export default function ReceiptDetailPage({
       setIsLoading(false);
     }
   };
+
+    const receiptCounts = useMemo(() => {
+      const counts: Record<string, number> = {};
+      folders.forEach((folder) => {
+        counts[folder.id] = folder.receipt_count || 0;
+      });
+      return counts;
+    }, [folders]);
 
 
   const handleDelete = async () => {
@@ -112,8 +120,6 @@ export default function ReceiptDetailPage({
       : []),
     { label: receipt.title },
   ];
-
-  const receiptCounts = {};
 
   return (
     <SidebarProvider>
