@@ -138,7 +138,7 @@ export default function ReceiptEditPage({
       if (receiptData.items && receiptData.participants) {
         receiptData.items.forEach((item, idx) => {
           if (item.splits && Array.isArray(item.splits)) {
-            item.splits.forEach((split) => {
+            item.splits.forEach((split:any) => {
               splits[`${idx}-${split.user_id}`] = true;
             });
           }
@@ -147,7 +147,7 @@ export default function ReceiptEditPage({
       if (receiptData.charges && receiptData.participants) {
         receiptData.charges.forEach((charge, idx) => {
           if (charge.splits && Array.isArray(charge.splits)) {
-            charge.splits.forEach((split) => {
+            charge.splits.forEach((split:any) => {
               splits[`charge-${idx}-${split.user_id}`] = true;
             });
           }
@@ -963,7 +963,7 @@ export default function ReceiptEditPage({
 
     setPaymentInputs(paymentInputs);
 
-    const paymentInputsInCents = paymentInputs.map(p => {return {...p, "amount_paid_cents": Number(p.amount * 100).toFixed(0)}})
+    const paymentInputsInCents:PaymentInput[] = paymentInputs.map(p => {return {"user_id": p.user_id, "amount_paid_cents": Math.round(Number(p.amount) * 100)}})
     handleAutoSavePayments(paymentInputsInCents);
   };
 
