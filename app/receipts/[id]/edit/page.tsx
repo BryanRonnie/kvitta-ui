@@ -1719,66 +1719,6 @@ export default function ReceiptEditPage({
               </Card>
 
               {/* Payments Card */}
-              {/* <Card className="p-6">
-                <h3 className="font-semibold text-lg mb-4 text-slate-900">Payments</h3>
-                <div className="space-y-3">
-                  <div className="space-y-2 p-3 bg-slate-50 rounded-lg">
-                    <div className="text-xs font-semibold text-slate-700 mb-2">Record Payment</div>
-                    <select
-                      id="payment-user"
-                      className="w-full px-2 py-1 border border-slate-300 rounded text-xs mb-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                      disabled={isSaving || isFinalized}
-                    >
-                      <option value="">Select payer...</option>
-                      {receipt?.participants?.map((p) => (
-                        <option key={p.user_id} value={p.user_id}>
-                          {p.name}
-                        </option>
-                      ))}
-                    </select>
-                    <div className="flex gap-1">
-                      <input
-                        type="number"
-                        step="0.01"
-                        placeholder="Amount"
-                        className="flex-1 px-2 py-1 border border-slate-300 rounded text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                        disabled={isSaving || isFinalized}
-                      />
-                      <Button
-                        size="sm"
-                        className="text-xs px-2"
-                        disabled={isSaving || isFinalized}
-                        onClick={() => }
-                      >
-                        Add
-                      </Button>
-                    </div>
-                  </div>
-
-                  {payments && payments.length > 0 ? (
-                    <div className="space-y-1 max-h-32 overflow-y-auto">
-                      {payments.map((payment, idx) => {
-                        const payer = receipt?.participants?.find((p) => p.user_id === payment.user_id);
-                        return (
-                          <div key={idx} className="flex justify-between items-center p-2 bg-white border border-slate-200 rounded text-xs">
-                            <span>
-                              <span className="font-medium">{payer?.name || 'Unknown'}</span>
-                              <span className="text-slate-500"> paid </span>
-                            </span>
-                            <span className="font-semibold text-green-600">
-                              {formatCurrency(payment.amount_paid_cents)}
-                            </span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <p className="text-xs text-slate-500 text-center py-2">No payments recorded yet</p>
-                  )}
-                </div>
-              </Card> */}
-
-              {/* Payments Card */}
               <Card className="p-6">
                 <h3 className="font-semibold text-lg mb-4 text-slate-900">
                   Payments

@@ -74,10 +74,10 @@ export function DashboardSidebar({
                 </SidebarGroup>
 
                 <SidebarGroup>
-  <SidebarGroupContent className="group-data-[collapsible=icon]:hidden">
-    <LedgerBalancePanel />
-  </SidebarGroupContent>
-</SidebarGroup>
+                    <SidebarGroupContent className="group-data-[collapsible=icon]:hidden">
+                        <LedgerBalancePanel />
+                    </SidebarGroupContent>
+                </SidebarGroup>
 
                 {/* Folders */}
                 <SidebarGroup>
@@ -124,7 +124,7 @@ export function DashboardSidebar({
 
             <SidebarFooter>
                 <SidebarMenu>
-                    <SidebarMenuItem>
+                    <SidebarMenuItem className="mb-2">
                         <SidebarMenuButton className="hover:bg-slate-50">
                             <div className="w-8 h-8 bg-linear-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-white font-semibold text-sm shrink-0">
                                 {user?.name?.charAt(0).toUpperCase() ||
@@ -141,7 +141,7 @@ export function DashboardSidebar({
                             </div>
                         </SidebarMenuButton>
                     </SidebarMenuItem>
-                    <SidebarMenuItem>
+                    <SidebarMenuItem className="ml-0.5">
                         <SidebarMenuButton
                             onClick={handleLogout}
                             className="hover:bg-red-50 text-red-600 hover:text-red-700"

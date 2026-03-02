@@ -142,18 +142,16 @@ export function ReceiptCard({ receipt, onView, onEdit, onDelete }: ReceiptCardPr
             </span>
           </div>
 
-          {/* Actions - Show on hover */}
+          {/* Actions */}
           <div
-            className={`flex justify-center gap-2 mt-4 transition-all duration-300 ${
-              isHovered ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-2"
-            }`}
+            className="flex justify-center gap-2 mt-4 transition-all duration-300"
           >
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 onView(receipt.id);
               }}
-              className="w-9 h-9 flex items-center justify-center bg-white border border-slate-200 rounded-lg hover:bg-indigo-600 hover:text-white hover:border-indigo-600 transition-colors"
+              className="w-9 h-9 flex items-center justify-center bg-slate-700 text-white border border-slate-700 rounded-lg hover:bg-indigo-600 hover:border-indigo-600 transition-colors"
             >
               <Eye className="w-4 h-4" />
             </button>
@@ -162,7 +160,7 @@ export function ReceiptCard({ receipt, onView, onEdit, onDelete }: ReceiptCardPr
                 e.stopPropagation();
                 onEdit(receipt.id);
               }}
-              className="w-9 h-9 flex items-center justify-center bg-white border border-slate-200 rounded-lg hover:bg-indigo-600 hover:text-white hover:border-indigo-600 transition-colors"
+              className="w-9 h-9 flex items-center justify-center bg-slate-700 text-white border border-slate-700 rounded-lg hover:bg-indigo-600 hover:border-indigo-600 transition-colors"
             >
               <Edit className="w-4 h-4" />
             </button>
@@ -171,7 +169,7 @@ export function ReceiptCard({ receipt, onView, onEdit, onDelete }: ReceiptCardPr
                 e.stopPropagation();
                 onDelete(receipt.id);
               }}
-              className="w-9 h-9 flex items-center justify-center bg-white border border-slate-200 rounded-lg hover:bg-red-600 hover:text-white hover:border-red-600 transition-colors"
+              className="w-9 h-9 flex items-center justify-center bg-slate-700 text-white border border-slate-700 rounded-lg hover:bg-red-600 hover:border-red-600 transition-colors"
             >
               <Trash2 className="w-4 h-4" />
             </button>
