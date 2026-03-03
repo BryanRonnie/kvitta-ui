@@ -32,7 +32,7 @@ export function useWorkerHealth(pollInterval: number = 30000) {
 
     const checkHealth = async () => {
       try {
-        const baseUrl = process.env.NEXT_PUBLIC_WORKER_API_URL;
+        const baseUrl = process.env.NEXT_PUBLIC_WORKER_API_URL || "http://localhost:8001";
         if (!baseUrl) {
           setStatus({
             isOnline: false,

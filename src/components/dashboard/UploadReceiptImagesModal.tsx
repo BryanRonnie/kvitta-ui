@@ -100,7 +100,7 @@ export function UploadReceiptImagesModal({
         formData.append("charges_image", chargeImage.file);
       }
 
-      const workerUrl = process.env.NEXT_PUBLIC_WORKER_API_URL;
+      const workerUrl = process.env.NEXT_PUBLIC_WORKER_API_URL || "http://localhost:8001";
       if (!workerUrl) {
         throw new Error("Worker API URL not configured");
       }
