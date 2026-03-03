@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 
 interface WorkerHealthStatus {
   isOnline: boolean;
@@ -24,7 +24,7 @@ export function useWorkerHealth(pollInterval: number = 30000) {
     isLoading: true,
     lastChecked: null,
   });
-  const [failureCount, setFailureCount] = useState(0);
+  const failureCountRef = useRef(0);
 
   useEffect(() => {
     let isMounted = true;
@@ -61,9 +61,9 @@ export function useWorkerHealth(pollInterval: number = 30000) {
           });
           // Reset failure count on success
           if (isOnline) {
-            setFailureCount(0);
+            failureCountRef.current = 0;
           } else {
-            setFailureCount((prev) => prev + 1);
+            failureCountRef.current += 1;
           }
         }
       } catch (error) {
@@ -73,7 +73,7 @@ export function useWorkerHealth(pollInterval: number = 30000) {
             isLoading: false,
             lastChecked: new Date(),
           });
-          setFailureCount((prev) => prev + 1);
+          failureCountRef.current += 1;
         }
       }
     };
@@ -84,7 +84,7 @@ export function useWorkerHealth(pollInterval: number = 30000) {
     // Poll with failure backoff
     const scheduleNextCheck = () => {
       // Exponential backoff on failures: 30s, 60s, 120s max
-      const backoffMultiplier = Math.min(Math.pow(2, failureCount - 1), 4);
+      const backoffMultiplier = Math.min(Math.pow(2, Math.max(0, failureCountRef.current - 1)), 4);
       const nextCheckInterval = pollInterval * backoffMultiplier;
 
       timeoutId = setTimeout(() => {
@@ -99,7 +99,7 @@ export function useWorkerHealth(pollInterval: number = 30000) {
       isMounted = false;
       clearTimeout(timeoutId);
     };
-  }, [pollInterval, failureCount]);
+  }, [pollInterval]);
 
   return status;
 }

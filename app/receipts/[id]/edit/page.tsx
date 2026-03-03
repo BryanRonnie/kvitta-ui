@@ -663,7 +663,8 @@ export default function ReceiptEditPage({
 
       console.log("396", updateData)
 
-      await updateReceipt(id, updateData);
+      const updatedReceipt = await updateReceipt(id, updateData);
+      setReceipt(updatedReceipt);
       setShowSaved(true);
       setTimeout(() => setShowSaved(false), 2000);
       // router.push(`/receipts/${id}`);
@@ -696,7 +697,8 @@ export default function ReceiptEditPage({
 
       console.log("396", updateData)
 
-      await updateReceipt(id, updateData);
+      const updatedReceipt = await updateReceipt(id, updateData);
+      setReceipt(updatedReceipt);
       setShowSaved(true);
       setTimeout(() => setShowSaved(false), 2000);
       // router.push(`/receipts/${id}`);
@@ -773,7 +775,8 @@ export default function ReceiptEditPage({
         payments,
       };
 
-      await updateReceipt(id, updateData);
+      const updatedReceipt = await updateReceipt(id, updateData);
+      setReceipt(updatedReceipt);
       setShowSaved(true);
       setTimeout(() => setShowSaved(false), 2000);
       // router.push(`/receipts/${id}`);

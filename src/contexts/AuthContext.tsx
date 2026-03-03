@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
 import { UserResponse } from "../types/auth";
 
 interface AuthContextType {
@@ -19,7 +19,7 @@ const REMEMBER_ME_TIMEOUT = 7 * 24 * 60 * 60 * 1000; // 7 days
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<UserResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [sessionTimeout, setSessionTimeout] = useState<NodeJS.Timeout | null>(null);
+  const sessionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Initialize session from localStorage
   useEffect(() => {
@@ -74,14 +74,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [user]);
 
   const scheduleSessionTimeout = useCallback((timeout: number, rememberMe: boolean) => {
-    if (sessionTimeout) clearTimeout(sessionTimeout);
+    if (sessionTimeoutRef.current) clearTimeout(sessionTimeoutRef.current);
 
     const newTimeout = setTimeout(() => {
       clearSession();
     }, timeout);
 
-    setSessionTimeout(newTimeout);
-  }, [sessionTimeout]);
+    sessionTimeoutRef.current = newTimeout;
+  }, []);
 
   const clearSession = useCallback(() => {
     if (typeof window === "undefined") return;
@@ -90,9 +90,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.removeItem("remember_me");
     localStorage.removeItem("last_activity");
     localStorage.removeItem("access_token");
-    if (sessionTimeout) clearTimeout(sessionTimeout);
+    if (sessionTimeoutRef.current) {
+      clearTimeout(sessionTimeoutRef.current);
+      sessionTimeoutRef.current = null;
+    }
     // Don't redirect here; let ProtectedRouteWrapper handle it via router.replace()
-  }, [sessionTimeout]);
+  }, []);
 
   const login = useCallback((userData: UserResponse, rememberMe: boolean) => {
     if (typeof window === "undefined") return;
