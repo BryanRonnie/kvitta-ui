@@ -144,7 +144,7 @@ export function ReceiptCard({ receipt, onView, onEdit, onDelete }: ReceiptCardPr
 
           {/* Actions */}
           <div
-            className="flex justify-center gap-2 mt-4 transition-all duration-300"
+            className="flex justify-center gap-2 mt-4 transition-all duration-300 flex-wrap"
           >
             <button
               onClick={(e) => {
@@ -152,6 +152,7 @@ export function ReceiptCard({ receipt, onView, onEdit, onDelete }: ReceiptCardPr
                 onView(receipt.id);
               }}
               className="w-9 h-9 flex items-center justify-center bg-slate-700 text-white border border-slate-700 rounded-lg hover:bg-indigo-600 hover:border-indigo-600 transition-colors"
+              title="View receipt details"
             >
               <Eye className="w-4 h-4" />
             </button>
@@ -161,6 +162,7 @@ export function ReceiptCard({ receipt, onView, onEdit, onDelete }: ReceiptCardPr
                 onEdit(receipt.id);
               }}
               className="w-9 h-9 flex items-center justify-center bg-slate-700 text-white border border-slate-700 rounded-lg hover:bg-indigo-600 hover:border-indigo-600 transition-colors"
+              title="Edit receipt"
             >
               <Edit className="w-4 h-4" />
             </button>
@@ -170,6 +172,7 @@ export function ReceiptCard({ receipt, onView, onEdit, onDelete }: ReceiptCardPr
                 onDelete(receipt.id);
               }}
               className="w-9 h-9 flex items-center justify-center bg-slate-700 text-white border border-slate-700 rounded-lg hover:bg-red-600 hover:border-red-600 transition-colors"
+              title="Delete receipt"
             >
               <Trash2 className="w-4 h-4" />
             </button>

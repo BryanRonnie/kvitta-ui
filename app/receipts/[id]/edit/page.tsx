@@ -15,7 +15,9 @@ import {
   AlertCircle,
   Upload,
   Check,
-  CloudCheck
+  CloudCheck,
+  Zap,
+  Loader,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,6 +26,7 @@ import { Card } from "@/components/ui/card";
 import { Breadcrumb } from "@/components/ui/breadcrumb";
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { DashboardSidebar } from "@/components/dashboard/DashboardSidebar";
+import { UploadReceiptImagesModal } from "@/components/dashboard/UploadReceiptImagesModal";
 import {
   getReceipt,
   updateReceipt,
@@ -33,6 +36,7 @@ import {
 import { listFolders } from "@/api/folder.api";
 import { Receipt, ReceiptUpdate, ItemInput, PaymentInput } from "@/types/receipt";
 import { Folder } from "@/types/folder";
+import { useWorkerHealth } from "@/hooks/useWorkerHealth";
 
 export default function ReceiptEditPage({
   params,
@@ -42,6 +46,7 @@ export default function ReceiptEditPage({
   const { id } = use(params);
   const router = useRouter();
   const { clearSession } = useAuth();
+  const workerHealth = useWorkerHealth();
   const [receipt, setReceipt] = useState<Receipt | null>(null);
   const [folders, setFolders] = useState<Folder[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -96,6 +101,9 @@ export default function ReceiptEditPage({
   const [paymentInputs, setPaymentInputs] = useState<
     { user_id: string; amount: string }[]
   >([{ user_id: "", amount: "0.00" }]);
+
+  // OCR Upload Modal state
+  const [showUploadModal, setShowUploadModal] = useState(false);
 
 
   useEffect(() => {
@@ -396,6 +404,63 @@ export default function ReceiptEditPage({
     setShowBulkImport(false);
   };
 
+  const handleOCRSuccess = async (data: any) => {
+    console.log("OCR extraction successful:", data);
+
+    const analysis = data?.items_analysis ?? {};
+    const lineItems = Array.isArray(analysis?.line_items) ? analysis.line_items : [];
+    const chargesAnalysis = analysis?.charges_analysis ?? {};
+    const fees = Array.isArray(chargesAnalysis?.fees) ? chargesAnalysis.fees : [];
+    const discounts = Array.isArray(chargesAnalysis?.discounts)
+      ? chargesAnalysis.discounts
+      : [];
+
+    const extractedItems: ItemInput[] = lineItems.map((item: any) => {
+      const quantity = Number(item?.quantity) > 0 ? Number(item.quantity) : 1;
+      const unitPrice = Number(item?.unit_price);
+      const lineSubtotal = Number(item?.line_subtotal);
+      const unitPriceCents = Number.isFinite(unitPrice)
+        ? Math.round(unitPrice * 100)
+        : Number.isFinite(lineSubtotal)
+          ? Math.round((lineSubtotal / quantity) * 100)
+          : 0;
+
+      return {
+        name: (item?.name_raw || "").trim() || "Unnamed item",
+        quantity,
+        unit_price_cents: unitPriceCents,
+        taxable: Boolean(item?.taxable),
+        splits: [],
+      };
+    });
+
+    const extractedFees = fees.map((fee: any) => ({
+      name: (fee?.type || "Fee").trim(),
+      unit_price_cents: Math.round((Number(fee?.amount) || 0) * 100),
+      taxable: Boolean(fee?.taxable),
+      splits: [],
+    }));
+
+    const extractedDiscounts = discounts.map((discount: any) => ({
+      name: (discount?.description || "Discount").trim(),
+      unit_price_cents: -Math.round((Number(discount?.amount) || 0) * 100),
+      taxable: false,
+      splits: [],
+    }));
+
+    const mergedItems = [...items, ...extractedItems];
+    const mergedCharges = [...charges, ...extractedFees, ...extractedDiscounts];
+    const extractedTaxCents = Number.isFinite(Number(chargesAnalysis?.total_tax_reported))
+      ? Math.round(Number(chargesAnalysis.total_tax_reported) * 100)
+      : taxCents;
+
+    setItems(mergedItems);
+    setCharges(mergedCharges);
+    setTaxCents(extractedTaxCents);
+
+    await handleAutoSaveItems(mergedItems, mergedCharges, extractedTaxCents, tipCents);
+  };
+
   const handleAddMember = async () => {
     setMemberError("");
     if (!newMemberEmail.trim()) {
@@ -532,7 +597,12 @@ export default function ReceiptEditPage({
     }, 0);
   };
 
-  const handleAutoSaveItems = async (items: ItemInput[]) => {
+  const handleAutoSaveItems = async (
+    items: ItemInput[],
+    chargesOverride = charges,
+    taxCentsOverride = taxCents,
+    tipCentsOverride = tipCents
+  ) => {
     if (!receipt) return;
 
     if (!title.trim()) {
@@ -560,7 +630,7 @@ export default function ReceiptEditPage({
     });
 
     // Build charges with splits
-    const chargesWithSplits = charges.map((charge, idx) => {
+    const chargesWithSplits = chargesOverride.map((charge, idx) => {
       const selectedParticipants = receipt.participants?.filter((p) => {
         const key = `charge-${idx}-${p.user_id}`;
         return itemSplits[key];
@@ -584,8 +654,8 @@ export default function ReceiptEditPage({
         comments: comments.trim() || undefined,
         folder_id: folderId || undefined,
         status,
-        tax_cents: taxCents,
-        tip_cents: tipCents,
+        tax_cents: taxCentsOverride,
+        tip_cents: tipCentsOverride,
         items: itemsWithSplits,
         charges: chargesWithSplits,
         payments,
@@ -1211,7 +1281,7 @@ export default function ReceiptEditPage({
                 )}
 
                 {!showAddItem && !isFinalized && (
-                  <div className="flex gap-2 text-white">
+                  <div className="flex gap-2 text-white flex-wrap items-center">
                     <Button
                       variant="outline"
                       onClick={() => setShowAddItem(true)}
@@ -1228,6 +1298,51 @@ export default function ReceiptEditPage({
                       <Upload className="w-4 h-4 mr-2" />
                       Bulk Import
                     </Button>
+
+                    {/* OCR Extract Button */}
+                    <div className="relative">
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          if (workerHealth.isOnline) {
+                            setShowUploadModal(true);
+                          }
+                        }}
+                        disabled={!workerHealth.isOnline || workerHealth.isLoading || isSaving}
+                        className={`${
+                          workerHealth.isLoading
+                            ? "bg-slate-400 hover:bg-slate-400"
+                            : workerHealth.isOnline
+                            ? "bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600 hover:border-emerald-700"
+                            : "bg-slate-400 hover:bg-slate-400 text-slate-500 border-slate-400"
+                        }`}
+                        title={workerHealth.isLoading ? "Checking worker..." : workerHealth.isOnline ? "Extract text using AI" : "OCR worker offline"}
+                      >
+                        {workerHealth.isLoading ? (
+                          <>
+                            <Loader className="w-4 h-4 mr-2 animate-spin" />
+                            Checking...
+                          </>
+                        ) : (
+                          <>
+                            <Zap className="w-4 h-4 mr-2" />
+                            Extract
+                          </>
+                        )}
+                      </Button>
+
+                      {/* Status indicator dot */}
+                      <div
+                        className={`absolute -top-1 -right-1 w-3 h-3 rounded-full border-2 border-white transition-colors ${
+                          workerHealth.isLoading
+                            ? "bg-amber-400 animate-pulse"
+                            : workerHealth.isOnline
+                            ? "bg-emerald-500"
+                            : "bg-slate-400"
+                        }`}
+                        title={workerHealth.isLoading ? "Checking..." : workerHealth.isOnline ? "Online" : "Offline"}
+                      />
+                    </div>
                   </div>
                 )}
 
@@ -1916,6 +2031,13 @@ export default function ReceiptEditPage({
           </div>
         </div>
       </SidebarInset>
+
+      {/* Upload Receipt Images Modal */}
+      <UploadReceiptImagesModal
+        isOpen={showUploadModal}
+        onClose={() => setShowUploadModal(false)}
+        onSuccess={handleOCRSuccess}
+      />
     </SidebarProvider>
   );
 }
