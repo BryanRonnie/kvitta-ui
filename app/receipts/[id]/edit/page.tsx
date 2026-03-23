@@ -1,7 +1,7 @@
 "use client";
 
 import axios from "axios";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { use } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
@@ -91,6 +91,7 @@ export default function ReceiptEditPage({
 
   // Split editor
   const [itemSplits, setItemSplits] = useState<{ [key: string]: boolean }>({});
+  const splitAutosaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // CSV Import state
   const [showBulkImport, setShowBulkImport] = useState(false);
@@ -105,10 +106,30 @@ export default function ReceiptEditPage({
   // OCR Upload Modal state
   const [showUploadModal, setShowUploadModal] = useState(false);
 
+  const clearPendingSplitAutosave = () => {
+    if (!splitAutosaveTimeoutRef.current) return;
+    clearTimeout(splitAutosaveTimeoutRef.current);
+    splitAutosaveTimeoutRef.current = null;
+  };
+
+  const scheduleSplitAutosave = (nextSplits: { [key: string]: boolean }) => {
+    clearPendingSplitAutosave();
+    splitAutosaveTimeoutRef.current = setTimeout(() => {
+      handleAutoSaveItems(items, charges, taxCents, tipCents, nextSplits);
+      splitAutosaveTimeoutRef.current = null;
+    }, 1000);
+  };
+
 
   useEffect(() => {
     loadData();
   }, [id]);
+
+  useEffect(() => {
+    return () => {
+      clearPendingSplitAutosave();
+    };
+  }, []);
 
   // Get receipt counts from folders (already fetched from API)
   const receiptCounts = useMemo(() => {
@@ -198,6 +219,7 @@ export default function ReceiptEditPage({
     // Finalize receipt
   const finalizeReceipt = async () => {
     if (!receipt) return;
+    clearPendingSplitAutosave();
     setIsSaving(true);
     try {
       // You may want to get the token from your auth context or localStorage
@@ -254,14 +276,14 @@ export default function ReceiptEditPage({
 
   const toggleItemSplit = (itemIdx: number, userId: string) => {
     const key = `${itemIdx}-${userId}`;
-    let next = {
-      ...itemSplits,
-      [key]: !itemSplits[key],
-    };
-
-    setItemSplits(next);
-
-    // handleAutoSaveItemSplits(items, next); // pass concrete state
+    setItemSplits((prev) => {
+      const next = {
+        ...prev,
+        [key]: !prev[key],
+      };
+      scheduleSplitAutosave(next);
+      return next;
+    });
   };
 
   //   const toggleChargeSplit = (chargeIdx: number, userId: string) => {
@@ -280,10 +302,14 @@ export default function ReceiptEditPage({
 
   const toggleChargeSplit = (chargeIdx: number, userId: string) => {
     const key = `charge-${chargeIdx}-${userId}`;
-    setItemSplits((prev) => ({
-      ...prev,
-      [key]: !prev[key],
-    }));
+    setItemSplits((prev) => {
+      const next = {
+        ...prev,
+        [key]: !prev[key],
+      };
+      scheduleSplitAutosave(next);
+      return next;
+    });
   };
 
   const parseCSVInput = () => {
@@ -601,7 +627,8 @@ export default function ReceiptEditPage({
     items: ItemInput[],
     chargesOverride = charges,
     taxCentsOverride = taxCents,
-    tipCentsOverride = tipCents
+    tipCentsOverride = tipCents,
+    splitsOverride = itemSplits
   ) => {
     if (!receipt) return;
 
@@ -614,7 +641,7 @@ export default function ReceiptEditPage({
     const itemsWithSplits = items.map((item, idx) => {
       const selectedParticipants = receipt.participants?.filter((p) => {
         const key = `${idx}-${p.user_id}`;
-        return itemSplits[key];
+        return splitsOverride[key];
       }) || [];
 
       const splitCount = selectedParticipants.length;
@@ -633,7 +660,7 @@ export default function ReceiptEditPage({
     const chargesWithSplits = chargesOverride.map((charge, idx) => {
       const selectedParticipants = receipt.participants?.filter((p) => {
         const key = `charge-${idx}-${p.user_id}`;
-        return itemSplits[key];
+        return splitsOverride[key];
       }) || [];
 
       return {
@@ -682,6 +709,7 @@ export default function ReceiptEditPage({
 
     const handleAutoSavePayments = async (payments:PaymentInput[]) => {
     if (!receipt) return;
+    clearPendingSplitAutosave();
 
     if (!title.trim()) {
       alert("Receipt title is required");
@@ -718,6 +746,7 @@ export default function ReceiptEditPage({
 
   const handleSave = async () => {
     if (!receipt) return;
+    clearPendingSplitAutosave();
 
     if (!title.trim()) {
       alert("Receipt title is required");
